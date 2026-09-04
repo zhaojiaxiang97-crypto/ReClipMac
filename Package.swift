@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ReClipMac",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -12,7 +13,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "ReClipMac",
-            path: "Sources/ReClipMac"
+            path: "Sources/ReClipMac",
+            resources: [.process("Resources")]
         )
     ]
 )

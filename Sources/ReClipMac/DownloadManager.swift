@@ -52,7 +52,7 @@ final class DownloadManager: ObservableObject {
 
         let urls = uniqueURLs(from: rawInput)
         guard !urls.isEmpty else {
-            inputError = "请输入一个或多个有效的 http/https 链接。"
+            inputError = L10n.text("error.invalid_urls")
             return
         }
 
@@ -161,7 +161,7 @@ final class DownloadManager: ObservableObject {
             let formats = bestFormats(from: info.formats ?? [])
 
             item.title = info.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                ? info.title! : "未命名媒体"
+                ? info.title! : L10n.text("media.untitled")
             item.uploader = info.uploader ?? ""
             item.duration = info.duration
             item.thumbnailURL = info.thumbnail.flatMap(URL.init(string:))
@@ -186,7 +186,7 @@ final class DownloadManager: ObservableObject {
             try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
         } catch {
             item.status = .failed
-            item.errorMessage = "无法创建下载目录：\(error.localizedDescription)"
+            item.errorMessage = L10n.format("error.create_directory", error.localizedDescription)
             return
         }
 
@@ -332,7 +332,7 @@ final class DownloadManager: ObservableObject {
             item.status = .completed
         } else {
             item.status = .failed
-            let message = launchError ?? lastMessages[item.id] ?? "下载失败，请检查链接和网络后重试。"
+            let message = launchError ?? lastMessages[item.id] ?? L10n.text("error.download_failed_network")
             item.errorMessage = friendlyError(message)
         }
 
@@ -371,7 +371,7 @@ final class DownloadManager: ObservableObject {
                 do {
                     try FileManager.default.trashItem(at: standardized, resultingItemURL: nil)
                 } catch {
-                    inputError = "无法将文件移到废纸篓：\(error.localizedDescription)"
+                    inputError = L10n.format("error.trash_file", error.localizedDescription)
                 }
             }
         }
@@ -438,15 +438,15 @@ final class DownloadManager: ObservableObject {
         let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = message.lowercased()
 
-        if lowercased.contains("unsupported url") { return "该链接暂不受支持。" }
+        if lowercased.contains("unsupported url") { return L10n.text("error.unsupported_url") }
         if lowercased.contains("private video") || lowercased.contains("video unavailable") {
-            return "媒体不可访问、已删除或为私密内容。"
+            return L10n.text("error.media_unavailable")
         }
-        if lowercased.contains("http error 403") { return "平台拒绝了访问请求。" }
-        if lowercased.contains("http error 404") { return "未找到对应媒体。" }
-        if lowercased.contains("timed out") { return "请求超时，请检查网络后重试。" }
-        if lowercased.contains("drm") { return "该媒体受 DRM 保护，无法下载。" }
-        return message.isEmpty ? "下载失败，请稍后重试。" : message
+        if lowercased.contains("http error 403") { return L10n.text("error.access_denied") }
+        if lowercased.contains("http error 404") { return L10n.text("error.media_not_found") }
+        if lowercased.contains("timed out") { return L10n.text("error.timeout") }
+        if lowercased.contains("drm") { return L10n.text("error.drm") }
+        return message.isEmpty ? L10n.text("error.download_failed") : message
     }
 }
 
@@ -506,7 +506,7 @@ private enum CommandRunner {
         let error = String(decoding: errorPipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
 
         guard process.terminationStatus == 0 else {
-            throw CommandFailure(message: error.isEmpty ? "yt-dlp 解析失败。" : error)
+            throw CommandFailure(message: error.isEmpty ? L10n.text("error.ytdlp_inspection") : error)
         }
         return output
     }

@@ -68,14 +68,14 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("ReClip")
                     .font(.system(size: 24, weight: .bold, design: .serif))
-                Text("本机媒体传输工具")
+                Text(L10n.text("app.subtitle"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Label("仅处理你有权保存的非 DRM 内容", systemImage: "lock.shield")
+            Label(L10n.text("app.legal_notice"), systemImage: "lock.shield")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -101,16 +101,16 @@ struct ContentView: View {
                     .background(ReClipPalette.accent.opacity(0.12), in: Capsule())
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("添加媒体链接")
+                    Text(L10n.text("input.title"))
                         .font(.title3.weight(.semibold))
-                    Text("粘贴一个或多个视频或音频地址")
+                    Text(L10n.text("input.subtitle"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Picker("输出格式", selection: $selectedMode) {
+                Picker(L10n.text("output_format"), selection: $selectedMode) {
                     ForEach(DownloadMode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
@@ -128,7 +128,7 @@ struct ContentView: View {
                     .frame(minHeight: 118, maxHeight: 160)
                     .padding(8)
                     .scrollContentBackground(.hidden)
-                    .accessibilityLabel("媒体链接")
+                    .accessibilityLabel(L10n.text("input.accessibility"))
 
                 if rawURLs.isEmpty {
                     Text("https://example.com/video")
@@ -147,7 +147,7 @@ struct ContentView: View {
             }
 
             HStack(spacing: 12) {
-                Label("支持空格、逗号或换行分隔", systemImage: "link")
+                Label(L10n.text("input.separators"), systemImage: "link")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -160,7 +160,7 @@ struct ContentView: View {
                 Button {
                     inspectInput()
                 } label: {
-                    Label("解析链接", systemImage: "arrow.right.circle.fill")
+                    Label(L10n.text("input.inspect"), systemImage: "arrow.right.circle.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ReClipPalette.accent)
@@ -185,7 +185,7 @@ struct ContentView: View {
                     .foregroundStyle(manager.toolStatus.isReady ? ReClipPalette.success : ReClipPalette.accent)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(manager.toolStatus.isReady ? "本机环境已就绪" : "本机环境待处理")
+                    Text(L10n.text(manager.toolStatus.isReady ? "environment.ready" : "environment.needs_attention"))
                         .font(.callout.weight(.semibold))
                     Text(manager.toolStatus.message)
                         .font(.caption)
@@ -201,14 +201,14 @@ struct ContentView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
-                .help("重新检测工具")
-                .accessibilityLabel("重新检测工具")
+                .help(L10n.text("environment.recheck"))
+                .accessibilityLabel(L10n.text("environment.recheck"))
             }
 
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Label("下载位置", systemImage: "folder.fill")
+                Label(L10n.text("destination.title"), systemImage: "folder.fill")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(ReClipPalette.accent)
 
@@ -223,11 +223,11 @@ struct ContentView: View {
                     Button {
                         NSWorkspace.shared.open(manager.destinationURL)
                     } label: {
-                        Label("打开", systemImage: "folder")
+                        Label(L10n.text("action.open"), systemImage: "folder")
                     }
                     .buttonStyle(.bordered)
 
-                    Button("更改目录") {
+                    Button(L10n.text("destination.change")) {
                         chooseDestination()
                     }
                     .buttonStyle(.bordered)
@@ -236,7 +236,7 @@ struct ContentView: View {
 
             Divider()
 
-            Label("文件只保存在这台 Mac 上", systemImage: "desktopcomputer")
+            Label(L10n.text("destination.local_only"), systemImage: "desktopcomputer")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -253,9 +253,11 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("传输队列")
+                    Text(L10n.text("queue.title"))
                         .font(.title3.weight(.semibold))
-                    Text(manager.items.isEmpty ? "解析后的媒体会出现在这里" : "(manager.items.count) 个任务")
+                    Text(manager.items.isEmpty
+                         ? L10n.text("queue.empty_hint")
+                         : L10n.format("queue.task_count", manager.items.count))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -263,7 +265,7 @@ struct ContentView: View {
                 Spacer()
 
                 if manager.isQueueRunning {
-                    Label("正在传输", systemImage: "arrow.down.to.line.compact")
+                    Label(L10n.text("queue.running"), systemImage: "arrow.down.to.line.compact")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(ReClipPalette.accent)
                 }
@@ -271,7 +273,7 @@ struct ContentView: View {
                 Button {
                     manager.startAllReadyItems()
                 } label: {
-                    Label("下载全部", systemImage: "arrow.down.circle.fill")
+                    Label(L10n.text("queue.download_all"), systemImage: "arrow.down.circle.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ReClipPalette.accent)
@@ -290,9 +292,9 @@ struct ContentView: View {
                     .frame(width: 52, height: 52)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("队列还是空的")
+                        Text(L10n.text("queue.empty_title"))
                             .font(.headline)
-                        Text("在上方粘贴链接并解析，随后选择清晰度开始下载。")
+                        Text(L10n.text("queue.empty_body"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -350,7 +352,7 @@ struct ContentView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = manager.destinationURL
-        panel.message = "选择媒体文件的保存目录"
+        panel.message = L10n.text("destination.panel_message")
 
         if panel.runModal() == .OK, let url = panel.url {
             manager.setDestination(url)
@@ -403,8 +405,8 @@ private struct DownloadRow: View {
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
-                    .help("移除任务并将已创建的文件移到废纸篓")
-                    .accessibilityLabel("删除任务和文件")
+                    .help(L10n.text("task.delete_help"))
+                    .accessibilityLabel(L10n.text("task.delete_accessibility"))
                 }
 
                 let metadata = [item.sourceURL.host ?? "", item.uploader, item.durationText]
@@ -421,10 +423,12 @@ private struct DownloadRow: View {
                         ProgressView(value: item.progress)
                             .tint(ReClipPalette.accent)
                         HStack {
-                            Text(item.status == .queued ? "等待前序任务完成" : "\(Int(item.progress * 100))%")
+                            Text(item.status == .queued
+                                 ? L10n.text("task.waiting_previous")
+                                 : "\(Int(item.progress * 100))%")
                             Spacer()
                             if !item.speed.isEmpty { Text(item.speed) }
-                            if !item.eta.isEmpty { Text("剩余 \(item.eta)") }
+                            if !item.eta.isEmpty { Text(L10n.format("task.remaining", item.eta)) }
                         }
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -488,7 +492,7 @@ private struct DownloadRow: View {
         switch item.status {
         case .ready:
             HStack(spacing: 8) {
-                Picker("输出格式", selection: $item.mode) {
+                Picker(L10n.text("output_format"), selection: $item.mode) {
                     ForEach(DownloadMode.allCases) { mode in
                         Text(mode.title).tag(mode)
                     }
@@ -507,7 +511,7 @@ private struct DownloadRow: View {
                     }
                 }
 
-                Button("下载") {
+                Button(L10n.text("action.download")) {
                     manager.startDownload(item)
                 }
                 .buttonStyle(.borderedProminent)
@@ -515,13 +519,13 @@ private struct DownloadRow: View {
             }
 
         case .queued, .downloading:
-            Button("取消") {
+            Button(L10n.text("action.cancel")) {
                 manager.cancel(item)
             }
             .buttonStyle(.bordered)
 
         case .completed:
-            Button("在 Finder 中显示") {
+            Button(L10n.text("action.show_in_finder")) {
                 manager.reveal(item)
             }
             .buttonStyle(.borderedProminent)
@@ -529,13 +533,13 @@ private struct DownloadRow: View {
 
         case .failed, .cancelled:
             HStack(spacing: 8) {
-                Button("重试") {
+                Button(L10n.text("action.retry")) {
                     manager.retry(item)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ReClipPalette.accent)
 
-                Button("打开目录") {
+                Button(L10n.text("action.open_folder")) {
                     manager.reveal(item)
                 }
                 .buttonStyle(.bordered)
@@ -545,7 +549,7 @@ private struct DownloadRow: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Text("正在读取媒体信息")
+                Text(L10n.text("media.reading"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

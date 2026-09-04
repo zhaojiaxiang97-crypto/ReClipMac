@@ -10,13 +10,17 @@ struct ToolStatus: Equatable, Sendable {
 
     var message: String {
         if isReady {
-            return "yt-dlp 和 ffmpeg 已就绪"
+            return L10n.text("tool.ready")
         }
 
         var missing: [String] = []
         if ytDLPPath == nil { missing.append("yt-dlp") }
         if ffmpegPath == nil { missing.append("ffmpeg") }
-        return "缺少 \(missing.joined(separator: "、"))。请运行：brew install \(missing.joined(separator: " "))"
+        return L10n.format(
+            "tool.missing",
+            missing.joined(separator: L10n.text("list.separator")),
+            missing.joined(separator: " ")
+        )
     }
 }
 

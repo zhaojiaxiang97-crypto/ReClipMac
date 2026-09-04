@@ -26,13 +26,13 @@ enum DownloadStatus: String, Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .inspecting: "正在解析"
-        case .ready: "等待下载"
-        case .queued: "队列中"
-        case .downloading: "下载中"
-        case .completed: "已完成"
-        case .failed: "失败"
-        case .cancelled: "已取消"
+        case .inspecting: L10n.text("status.inspecting")
+        case .ready: L10n.text("status.ready")
+        case .queued: L10n.text("status.queued")
+        case .downloading: L10n.text("status.downloading")
+        case .completed: L10n.text("status.completed")
+        case .failed: L10n.text("status.failed")
+        case .cancelled: L10n.text("status.cancelled")
         }
     }
 
@@ -52,7 +52,7 @@ final class DownloadItem: ObservableObject, Identifiable {
     let id = UUID()
     let sourceURL: URL
 
-    @Published var title = "正在解析媒体信息"
+    @Published var title = L10n.text("media.inspecting_title")
     @Published var uploader = ""
     @Published var duration: TimeInterval?
     @Published var thumbnailURL: URL?
@@ -94,7 +94,7 @@ final class DownloadItem: ObservableObject, Identifiable {
     var selectedFormatLabel: String {
         guard let selectedFormatID,
               let format = formats.first(where: { $0.id == selectedFormatID }) else {
-            return "最佳质量"
+            return L10n.text("format.best")
         }
         return format.label
     }
