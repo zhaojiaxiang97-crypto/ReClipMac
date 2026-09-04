@@ -1,10 +1,13 @@
-venv/
-downloads/
-__pycache__/
-*.pyc
-assets/*.mov
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcodeproj/xcuserdata/
 .DS_Store
-.env
-.env.local
-.env.production
-.env.development
+
+# Local runtime files
+downloads/
+venv/
+*.log
+*.pid
+com.reclip.local.plist

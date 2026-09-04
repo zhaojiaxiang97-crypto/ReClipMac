@@ -1,66 +1,69 @@
-# ReClip
+# ReClipMac
 
-A self-hosted, open-source video and audio downloader with a clean web UI. Paste links from YouTube, TikTok, Instagram, Twitter/X, and 1000+ other sites — download as MP4 or MP3.
+ReClipMac is a native macOS media downloader powered by `yt-dlp` and `ffmpeg`. It runs locally without Flask, Docker, a browser, or a background web service.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-
-https://github.com/user-attachments/assets/419d3e50-c933-444b-8cab-a9724986ba05
-
-![ReClip MP3 Mode](assets/preview-mp3.png)
+ReClipMac 是一个原生 macOS 媒体下载工具。它直接在本机调用 `yt-dlp` 和 `ffmpeg`，不需要启动 Web 服务。
 
 ## Features
 
-- Download videos from 1000+ supported sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
-- MP4 video or MP3 audio extraction
-- Quality/resolution picker
-- Bulk downloads — paste multiple URLs at once
-- Automatic URL deduplication
-- Clean, responsive UI — no frameworks, no build step
-- Single Python file backend (~150 lines)
+- Parse one or more media links.
+- Download MP4 video or extract MP3 audio.
+- Select available video quality.
+- Show sequential queue progress, speed, and remaining time.
+- Cancel, retry, reveal, or remove a download.
+- Move downloaded and partial files to the macOS Trash when deleting a task.
+- Store files only in the selected local directory.
 
-## Quick Start
+## Requirements
 
-```bash
-brew install yt-dlp ffmpeg    # or apt install ffmpeg && pip install yt-dlp
-git clone https://github.com/averygan/reclip.git
-cd reclip
-./reclip.sh
-```
+- macOS 14 or later.
+- Xcode 16 or a Swift 6 toolchain.
+- Homebrew `yt-dlp` and `ffmpeg`.
 
-Open **http://localhost:8899**.
-
-Or with Docker:
+Install the runtime tools:
 
 ```bash
-docker build -t reclip . && docker run -p 8899:8899 reclip
+brew install yt-dlp ffmpeg
 ```
 
-## Usage
+## Build and run
 
-1. Paste one or more video URLs into the input box
-2. Choose **MP4** (video) or **MP3** (audio)
-3. Click **Fetch** to load video info and thumbnails
-4. Select quality/resolution if available
-5. Click **Download** on individual videos, or **Download All**
+From the repository root:
 
-## Supported Sites
+```bash
+swift run ReClipMac
+```
 
-Anything [yt-dlp supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), including:
+Swift Package Manager will compile the project and open the native macOS window.
 
-YouTube, TikTok, Instagram, Twitter/X, Reddit, Facebook, Vimeo, Twitch, Dailymotion, SoundCloud, Loom, Streamable, Pinterest, Tumblr, Threads, LinkedIn, and many more.
+To create a release executable:
 
-## Stack
+```bash
+swift build -c release
+```
 
-- **Backend:** Python + Flask (~150 lines)
-- **Frontend:** Vanilla HTML/CSS/JS (single file, no build step)
-- **Download engine:** [yt-dlp](https://github.com/yt-dlp/yt-dlp) + [ffmpeg](https://ffmpeg.org/)
-- **Dependencies:** 2 (Flask, yt-dlp)
+The executable is written to `.build/release/ReClipMac`.
 
-## Disclaimer
+You can also open `Package.swift` directly in Xcode and run the `ReClipMac` scheme.
 
-This tool is intended for personal use only. Please respect copyright laws and the terms of service of the platforms you download from. The developers are not responsible for any misuse of this tool.
+## Source layout
+
+```text
+Package.swift
+Sources/ReClipMac/
+  ReClipMacApp.swift
+  ContentView.swift
+  DownloadManager.swift
+  DownloadItem.swift
+  ToolLocator.swift
+```
+
+## Usage and copyright
+
+Only download media you have permission to save. ReClipMac does not bypass DRM, paywalls, authentication, or platform access restrictions.
+
+This repository retains the history and MIT license of the original [ReClip](https://github.com/averygan/reclip) project. The current codebase is a native macOS rewrite; the previous Flask and Web UI implementation has been removed.
 
 ## License
 
-[MIT](LICENSE)
+MIT. See [LICENSE](LICENSE).

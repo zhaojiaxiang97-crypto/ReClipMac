@@ -1,0 +1,4 @@
+This repository retains the history and MIT license of the original ReClip project:
+https://github.com/averygan/reclip
+
+The current implementation is a native macOS rewrite. The original Flask and Web UI implementation has been removed from the current branch but remains available in Git history.
