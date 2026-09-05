@@ -66,11 +66,13 @@ set_source_files_properties(qml/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_executable(ReClip
+set(RECLIP_APP_TARGET ReClipApp)
+
+qt_add_executable(${RECLIP_APP_TARGET}
     src/main.cpp
 )
 
-target_include_directories(ReClip PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(${RECLIP_APP_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(RECLIP_QML_FILES
     qml/Main.qml
@@ -98,7 +100,7 @@ if(RECLIP_HAS_KIRIGAMI)
     list(APPEND RECLIP_QML_FILES qml/MainKirigami.qml)
 endif()
 
-qt_add_qml_module(ReClip
+qt_add_qml_module(${RECLIP_APP_TARGET}
     URI ReClip
     VERSION 1.0
     QML_FILES ${RECLIP_QML_FILES}
@@ -117,46 +119,47 @@ qt_add_qml_module(ReClip
         src/AppSettings.cpp
 )
 
-set_target_properties(ReClip PROPERTIES
+set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
+    OUTPUT_NAME ReClip
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
-target_link_libraries(ReClip PRIVATE
+target_link_libraries(${RECLIP_APP_TARGET} PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
 )
 
 if(RECLIP_HAS_KIRIGAMI)
-    target_link_libraries(ReClip PRIVATE KF6::Kirigami)
-    target_compile_definitions(ReClip PRIVATE RECLIP_HAS_KIRIGAMI=1)
+    target_link_libraries(${RECLIP_APP_TARGET} PRIVATE KF6::Kirigami)
+    target_compile_definitions(${RECLIP_APP_TARGET} PRIVATE RECLIP_HAS_KIRIGAMI=1)
 
     if(WIN32)
         file(GLOB RECLIP_KIRIGAMI_RUNTIME_DLLS
             "${RECLIP_KIRIGAMI_PREFIX}/bin/Kirigami*.dll"
         )
         foreach(RECLIP_KIRIGAMI_RUNTIME_DLL IN LISTS RECLIP_KIRIGAMI_RUNTIME_DLLS)
-            add_custom_command(TARGET ReClip POST_BUILD
+            add_custom_command(TARGET ${RECLIP_APP_TARGET} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${RECLIP_KIRIGAMI_RUNTIME_DLL}"
-                    "$<TARGET_FILE_DIR:ReClip>"
+                    "$<TARGET_FILE_DIR:${RECLIP_APP_TARGET}>"
             )
             install(FILES "${RECLIP_KIRIGAMI_RUNTIME_DLL}" DESTINATION .)
         endforeach()
     endif()
 
     if(EXISTS "${RECLIP_KIRIGAMI_QML_DIR}/org")
-        add_custom_command(TARGET ReClip POST_BUILD
+        add_custom_command(TARGET ${RECLIP_APP_TARGET} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${RECLIP_KIRIGAMI_QML_DIR}/org"
-                "$<TARGET_FILE_DIR:ReClip>/qml/org"
+                "$<TARGET_FILE_DIR:${RECLIP_APP_TARGET}>/qml/org"
         )
         install(DIRECTORY "${RECLIP_KIRIGAMI_QML_DIR}/org" DESTINATION qml)
     endif()
 endif()
 
 include(GNUInstallDirs)
-install(TARGETS ReClip
+install(TARGETS ${RECLIP_APP_TARGET}
     RUNTIME DESTINATION .
     BUNDLE DESTINATION .
 )
