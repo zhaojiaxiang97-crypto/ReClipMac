@@ -63,10 +63,15 @@ fi
 [[ -x "${source_binary}" ]] || die "构建完成但没有找到 ReClip 可执行文件"
 
 mkdir -p "${appdir}/usr/bin" "${appdir}/usr/share/applications" "${appdir}/usr/share/metainfo"
+icon_source="${repository_root}/packaging/linux/ReClip.svg"
+[[ -f "${icon_source}" ]] || die "找不到 Linux 应用图标：${icon_source}"
+mkdir -p "${appdir}/usr/share/icons/hicolor/scalable/apps"
 cp "${source_binary}" "${appdir}/usr/bin/ReClip"
 cp -L "${yt_dlp}" "${appdir}/usr/bin/yt-dlp"
 cp -L "${ffmpeg}" "${appdir}/usr/bin/ffmpeg"
 cp -L "${ffprobe}" "${appdir}/usr/bin/ffprobe"
+cp "${icon_source}" "${appdir}/ReClip.svg"
+cp "${icon_source}" "${appdir}/usr/share/icons/hicolor/scalable/apps/ReClip.svg"
 chmod 755 "${appdir}/usr/bin/ReClip" "${appdir}/usr/bin/yt-dlp" "${appdir}/usr/bin/ffmpeg" "${appdir}/usr/bin/ffprobe"
 
 cat > "${appdir}/ReClip.desktop" <<'EOF'
@@ -75,6 +80,7 @@ Type=Application
 Name=ReClip
 Comment=Cross-platform media downloader
 Exec=ReClip
+Icon=ReClip
 Terminal=false
 Categories=AudioVideo;Network;
 EOF
