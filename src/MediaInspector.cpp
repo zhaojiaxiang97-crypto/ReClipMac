@@ -244,7 +244,7 @@ void MediaInspector::resetResult()
     m_title.clear();
     m_uploader.clear();
     m_duration.clear();
-    m_thumbnailUrl = {};
+    m_thumbnailUrl = QUrl();
     m_formats.clear();
     m_formatLabels.clear();
     m_selectedFormatId.clear();
