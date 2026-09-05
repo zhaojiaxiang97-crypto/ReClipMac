@@ -232,6 +232,14 @@ jobs:
 
       - name: Build AppImage
         run: |
+          # The project does not use Qt's optional Mimer SQL driver. Its
+          # proprietary runtime is unavailable on the GitHub Actions runner,
+          # so keep it out of linuxdeployqt's dependency scan temporarily.
+          qt_mimer_plugin="${QT_ROOT_DIR:-}/plugins/sqldrivers/libqsqlmimer.so"
+          if [[ -n "${QT_ROOT_DIR:-}" && -f "${qt_mimer_plugin}" ]]; then
+            mv "${qt_mimer_plugin}" "$RUNNER_TEMP/libqsqlmimer.so"
+            trap 'mv "$RUNNER_TEMP/libqsqlmimer.so" "$qt_mimer_plugin"' EXIT
+          fi
           RECLIP_QT_ROOT="${QT_ROOT_DIR:-}" \
           RECLIP_TOOL_BIN="$RUNNER_TEMP/reclip-tools" \
           RECLIP_LINUXDEPLOYQT="$RUNNER_TEMP/linuxdeployqt.AppImage" \
