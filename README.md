@@ -1,149 +1,120 @@
-# ReClipMac
+# ReClipQt
 
 [English](#english) | [简体中文](#简体中文)
 
 ## English
 
-ReClipMac is a native macOS media downloader powered by `yt-dlp` and `ffmpeg`. It runs locally without Flask, Docker, a browser, or a background web service.
+ReClipQt is the Qt 6/QML cross-platform migration of the original [ReClipMac](https://github.com/zhaojiaxiang97-crypto/ReClipMac) media downloader. The active implementation uses QML/Qt Quick for the UI, C++/Qt for application logic, and CMake for builds on Windows, macOS, and Linux.
+
+The original SwiftUI macOS implementation has been removed from this working tree. The upstream GitHub repository remains the historical source of that implementation.
 
 ### Features
 
-- Parse one or more media links.
-- Download MP4 video or extract MP3 audio.
+- Parse media URLs with `yt-dlp`.
+- Download MP4 video or extract MP3 audio with FFmpeg.
 - Select available video quality.
 - Show sequential queue progress, speed, and remaining time.
 - Cancel, retry, reveal, or remove a download.
-- Move downloaded and partial files to the macOS Trash when deleting a task.
-- Store files only in the selected local directory.
-- Display English or Simplified Chinese automatically based on the macOS preferred language.
+- Persist download and tool settings locally.
+- Use light/dark QML themes, clipboard paste, and drag-and-drop URLs.
 
 ### Requirements
 
-- macOS 14 or later.
-- Xcode 16 or a Swift 6 toolchain.
-- Homebrew `yt-dlp` and `ffmpeg`.
+- Qt 6.8 or later with Qt Quick, QML, Quick Controls, and Shader Tools.
+- CMake 3.21 or later and a C++17 compiler.
+- `yt-dlp`, `ffmpeg`, and `ffprobe`.
+- Optional adaptive UI dependency: KDE Kirigami 6.8.0 with Extra CMake Modules 6.8.0.
 
-Install the runtime tools:
+### Build and test
 
-```bash
-brew install yt-dlp ffmpeg
+Windows with Visual Studio:
+
+```powershell
+cmake -S . -B .build/windows -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+cmake --build .build/windows --config Release
+ctest --test-dir .build/windows -C Release --output-on-failure
 ```
 
-### Build and run
+To enable the Kirigami application shell on Windows, install the pinned local
+dependency first and then configure the project. The script uses Kirigami
+6.8.0, which is compatible with the current Qt 6.8.3 kit:
 
-From the repository root:
-
-```bash
-swift run ReClipMac
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/Install-Kirigami.ps1
+cmake -S . -B .build/windows-kirigami -G "Visual Studio 17 2022" -A x64 -DRECLIP_ENABLE_KIRIGAMI=ON
+cmake --build .build/windows-kirigami --config Release
 ```
 
-Swift Package Manager will compile the project and open the native macOS window.
+If Kirigami is not installed, CMake automatically keeps the Qt Quick Controls
+2 responsive shell from `Main.qml`. Set `-DRECLIP_ENABLE_KIRIGAMI=OFF` to make
+that fallback explicit.
 
-To create a release executable:
+macOS or Linux:
 
 ```bash
-swift build -c release
+qt-cmake -S . -B .build/desktop -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake --build .build/desktop --config Release
+ctest --test-dir .build/desktop --output-on-failure
 ```
 
-The executable is written to `.build/release/ReClipMac`.
+Generated files are intentionally kept out of the repository root: `.build/`
+contains CMake build trees and `.artifacts/` contains packaged applications.
+The pre-existing root-level caches were moved to `.build/legacy/` and are kept
+there as a recoverable migration archive.
 
-You can also open `Package.swift` directly in Xcode and run the `ReClipMac` scheme.
+### Packaging
+
+- Windows portable package: `packaging/windows/package.ps1`
+- macOS `.app`: `packaging/macos/package.sh`
+- Linux AppImage: `packaging/linux/package-appimage.sh`
+- Cross-platform CI: `.github/workflows/ci.yml`
 
 ### Source layout
 
 ```text
-Package.swift
-Sources/ReClipMac/
-  ReClipMacApp.swift
-  ContentView.swift
-  DownloadManager.swift
-  DownloadItem.swift
-  ToolLocator.swift
-  Localization.swift
-  Resources/
-    en.lproj/Localizable.strings
-    zh-Hans.lproj/Localizable.strings
+CMakeLists.txt
+src/                    C++/Qt application logic
+qml/                    QML UI, theme, and components
+tests/                  Qt Test coverage
+packaging/              Platform packaging scripts and notices
+scripts/                Dependency bootstrap scripts
+.github/workflows/      Cross-platform CI
+.build/                 Local CMake build trees (generated, ignored)
+.artifacts/             Packaged applications (generated, ignored)
 ```
 
-### Usage and copyright
-
-Only download media you have permission to save. ReClipMac does not bypass DRM, paywalls, authentication, or platform access restrictions.
-
-This repository retains the history and MIT license of the original [ReClip](https://github.com/averygan/reclip) project. The current codebase is a native macOS rewrite; the previous Flask and Web UI implementation has been removed.
+Only download media you have permission to save. ReClipQt does not bypass DRM, paywalls, authentication, or platform access restrictions.
 
 ### License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## 简体中文
 
-ReClipMac 是一个基于 `yt-dlp` 和 `ffmpeg` 的原生 macOS 媒体下载工具。所有功能都在本机运行，不需要 Flask、Docker、浏览器或后台 Web 服务。
+ReClipQt 是原始 [ReClipMac](https://github.com/zhaojiaxiang97-crypto/ReClipMac) 媒体下载器的 Qt 6/QML 跨平台改造版本。当前活跃实现使用 QML/Qt Quick 构建界面，使用 C++/Qt 承担业务逻辑，并使用 CMake 支持 Windows、macOS 和 Linux 桌面端。
+
+原来的 SwiftUI macOS 实现已从当前工作树移除；GitHub 上游仓库仍保留这部分历史代码。
 
 ### 功能
 
-- 解析一个或多个媒体链接。
-- 下载 MP4 视频或提取 MP3 音频。
+- 使用 `yt-dlp` 解析媒体链接。
+- 使用 FFmpeg 下载 MP4 或提取 MP3。
 - 选择可用的视频清晰度。
-- 实时显示顺序下载队列的进度、速度和剩余时间。
-- 支持取消、重试、在 Finder 中显示或删除下载任务。
-- 删除任务时，将已下载文件和临时文件移到 macOS 废纸篓。
-- 文件只保存在用户选择的本地目录。
-- 根据 macOS 首选语言自动显示英文或简体中文。
+- 显示串行下载队列、进度、速度和剩余时间。
+- 支持取消、重试、打开位置和删除任务。
+- 持久化下载目录和工具配置。
+- 支持浅色/深色 QML 主题、剪贴板粘贴和链接拖拽。
 
-### 环境要求
+### 构建、测试与打包
 
-- macOS 14 或更高版本。
-- Xcode 16 或 Swift 6 工具链。
-- 通过 Homebrew 安装 `yt-dlp` 和 `ffmpeg`。
+构建和测试命令见上方 English 部分；平台打包入口位于 `packaging/`，三平台 CI 位于 `.github/workflows/ci.yml`。
 
-安装运行工具：
+当前已接入可选的 Kirigami 6.8.0。本机 Windows 构建可先运行
+`scripts/Install-Kirigami.ps1`，再使用 `-DRECLIP_ENABLE_KIRIGAMI=ON`
+配置；未安装 Kirigami 时项目会自动回退到 Qt Quick Controls 2 壳层。
 
-```bash
-brew install yt-dlp ffmpeg
-```
-
-### 构建和运行
-
-在仓库根目录执行：
-
-```bash
-swift run ReClipMac
-```
-
-Swift Package Manager 会编译项目并打开原生 macOS 窗口。
-
-构建 Release 可执行文件：
-
-```bash
-swift build -c release
-```
-
-可执行文件位于 `.build/release/ReClipMac`。
-
-也可以直接使用 Xcode 打开 `Package.swift`，然后运行 `ReClipMac` Scheme。
-
-### 源码结构
-
-```text
-Package.swift
-Sources/ReClipMac/
-  ReClipMacApp.swift
-  ContentView.swift
-  DownloadManager.swift
-  DownloadItem.swift
-  ToolLocator.swift
-  Localization.swift
-  Resources/
-    en.lproj/Localizable.strings
-    zh-Hans.lproj/Localizable.strings
-```
-
-### 使用与版权
-
-请仅下载你有权保存的媒体。ReClipMac 不会绕过 DRM、付费墙、身份验证或平台访问限制。
-
-本仓库保留了原始 [ReClip](https://github.com/averygan/reclip) 项目的提交历史和 MIT 许可证。当前代码已经重写为原生 macOS 应用，旧的 Flask 和 Web UI 实现已被移除。
+请仅下载你有权保存的媒体。ReClipQt 不会绕过 DRM、付费墙、身份验证或平台访问限制。
 
 ### 许可证
 
-使用 MIT 许可证，详见 [LICENSE](LICENSE)。
+使用 MIT 许可证，详见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。

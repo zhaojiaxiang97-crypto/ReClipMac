@@ -1,0 +1,250 @@
+name: ReClip CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reclip-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: 6.8.3
+
+jobs:
+  windows:
+    name: Windows build, tests and portable package
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtshadertools
+          cache: true
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake -S . -B .build/ci-windows -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          cmake --build .build/ci-windows --config Release --parallel 4
+
+      - name: QML lint
+        shell: pwsh
+        run: |
+          $qmlFiles = Get-ChildItem qml -Recurse -File -Filter '*.qml' |
+            Where-Object { $_.Name -ne 'MainKirigami.qml' -or (Test-Path '.third_party/install/lib/qml/org/kde/kirigami/qmldir') } |
+            ForEach-Object { $_.FullName }
+          $qmlImportArgs = @('-I', '.build/ci-windows')
+          if (Test-Path '.third_party/install/lib/qml/org/kde/kirigami/qmldir') {
+            $qmlImportArgs += @('-I', '.third_party/install/lib/qml')
+          }
+          qmllint @qmlImportArgs @qmlFiles
+
+      - name: CTest
+        shell: pwsh
+        run: ctest --test-dir .build/ci-windows -C Release --output-on-failure
+
+      - name: Prepare runtime tools
+        shell: pwsh
+        run: |
+          $toolDirectory = Join-Path $env:RUNNER_TEMP 'reclip-tools'
+          New-Item -ItemType Directory -Force -Path $toolDirectory | Out-Null
+          $ytDlpPath = Join-Path $toolDirectory 'yt-dlp.exe'
+          Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile $ytDlpPath
+          $ffmpegArchive = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+          Invoke-WebRequest -Uri 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile $ffmpegArchive
+          $extractDirectory = Join-Path $env:RUNNER_TEMP 'ffmpeg'
+          Expand-Archive -LiteralPath $ffmpegArchive -DestinationPath $extractDirectory -Force
+          foreach ($toolName in @('ffmpeg.exe', 'ffprobe.exe')) {
+            $source = Get-ChildItem -LiteralPath $extractDirectory -Recurse -Filter $toolName -File | Select-Object -First 1
+            if (-not $source) { throw "Missing $toolName from FFmpeg archive." }
+            Copy-Item -LiteralPath $source.FullName -Destination (Join-Path $toolDirectory $toolName)
+          }
+
+      - name: Build portable package
+        shell: pwsh
+        run: |
+          $env:RECLIP_TOOL_BIN = Join-Path $env:RUNNER_TEMP 'reclip-tools'
+          if (-not $env:RECLIP_QT_ROOT -and $env:QT_ROOT_DIR) { $env:RECLIP_QT_ROOT = $env:QT_ROOT_DIR }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/windows/package.ps1 -Configuration Release -OutputDirectory .artifacts/windows/ReClip-CI
+
+      - name: Windows offscreen startup smoke test
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath (Join-Path (Get-Location) '.artifacts/windows/ReClip-CI/ReClip.exe') -WorkingDirectory (Join-Path (Get-Location) '.artifacts/windows/ReClip-CI') -ArgumentList '--platform','offscreen' -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) { throw "ReClip exited during startup smoke test with code $($process.ExitCode)." }
+          Stop-Process -Id $process.Id -Force
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReClip-windows-${{ github.sha }}
+          path: .artifacts/windows/ReClip-CI
+          if-no-files-found: error
+
+  macos:
+    name: macOS build, tests and app bundle
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtshadertools
+          cache: true
+
+      - name: Build
+        run: |
+          cmake -S . -B .build/ci-macos -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build .build/ci-macos --config Release --parallel 3
+
+      - name: QML lint
+        run: |
+          qml_files=$(find qml -name '*.qml' ! -path 'qml/MainKirigami.qml' -print)
+          import_args=(-I .build/ci-macos)
+          if [[ -f .third_party/install/lib/qml/org/kde/kirigami/qmldir ]]; then
+            qml_files="$qml_files qml/MainKirigami.qml"
+            import_args+=(-I .third_party/install/lib/qml)
+          fi
+          # shellcheck disable=SC2086
+          qmllint "${import_args[@]}" $qml_files
+
+      - name: CTest
+        run: ctest --test-dir .build/ci-macos -C Release --output-on-failure
+
+      - name: Prepare runtime tools
+        run: |
+          brew install ffmpeg
+          mkdir -p "$RUNNER_TEMP/reclip-tools"
+          curl --fail --location --output "$RUNNER_TEMP/reclip-tools/yt-dlp" https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
+          cp "$(command -v ffmpeg)" "$RUNNER_TEMP/reclip-tools/ffmpeg"
+          cp "$(command -v ffprobe)" "$RUNNER_TEMP/reclip-tools/ffprobe"
+          chmod 755 "$RUNNER_TEMP/reclip-tools"/*
+
+      - name: Build app bundle
+        run: |
+          RECLIP_QT_ROOT="${QT_ROOT_DIR:-}" \
+          RECLIP_TOOL_BIN="$RUNNER_TEMP/reclip-tools" \
+            bash packaging/macos/package.sh Release
+
+      - name: macOS offscreen startup smoke test
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          environment = os.environ.copy()
+          environment['QT_QPA_PLATFORM'] = 'offscreen'
+          process = subprocess.Popen([
+              '.artifacts/macos/ReClip-Release.app/Contents/MacOS/ReClip',
+              '--platform', 'offscreen',
+          ], env=environment)
+          try:
+              process.wait(timeout=8)
+          except subprocess.TimeoutExpired:
+              process.terminate()
+              try:
+                  process.wait(timeout=3)
+              except subprocess.TimeoutExpired:
+                  process.kill()
+                  process.wait()
+          else:
+              if process.returncode != 0:
+                  sys.exit(f'ReClip exited during startup smoke test with code {process.returncode}.')
+          PY
+
+      - name: Upload macOS app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReClip-macos-${{ github.sha }}
+          path: .artifacts/macos/ReClip-Release.app
+          if-no-files-found: error
+
+  linux:
+    name: Linux build, tests and AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg python3-pip
+          python3 -m pip install --user yt-dlp
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          modules: qtshadertools
+          cache: true
+
+      - name: Build
+        run: |
+          cmake -S . -B .build/ci-linux -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build .build/ci-linux --config Release --parallel 3
+
+      - name: QML lint
+        run: |
+          qml_files=$(find qml -name '*.qml' ! -path 'qml/MainKirigami.qml' -print)
+          import_args=(-I .build/ci-linux)
+          if [[ -f .third_party/install/lib/qml/org/kde/kirigami/qmldir ]]; then
+            qml_files="$qml_files qml/MainKirigami.qml"
+            import_args+=(-I .third_party/install/lib/qml)
+          fi
+          # shellcheck disable=SC2086
+          qmllint "${import_args[@]}" $qml_files
+
+      - name: CTest
+        run: ctest --test-dir .build/ci-linux -C Release --output-on-failure
+
+      - name: Prepare runtime tools and linuxdeployqt
+        run: |
+          mkdir -p "$RUNNER_TEMP/reclip-tools"
+          cp "$(command -v ffmpeg)" "$RUNNER_TEMP/reclip-tools/ffmpeg"
+          cp "$(command -v ffprobe)" "$RUNNER_TEMP/reclip-tools/ffprobe"
+          cp "$HOME/.local/bin/yt-dlp" "$RUNNER_TEMP/reclip-tools/yt-dlp"
+          curl --fail --location --output "$RUNNER_TEMP/linuxdeployqt.AppImage" https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod 755 "$RUNNER_TEMP/linuxdeployqt.AppImage" "$RUNNER_TEMP/reclip-tools"/*
+
+      - name: Build AppImage
+        run: |
+          RECLIP_QT_ROOT="${QT_ROOT_DIR:-}" \
+          RECLIP_TOOL_BIN="$RUNNER_TEMP/reclip-tools" \
+          RECLIP_LINUXDEPLOYQT="$RUNNER_TEMP/linuxdeployqt.AppImage" \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            bash packaging/linux/package-appimage.sh Release
+
+      - name: Linux offscreen startup smoke test
+        run: |
+          timeout 8s env QT_QPA_PLATFORM=offscreen .artifacts/linux/ReClip-Release-x86_64.AppImage --appimage-extract-and-run --platform offscreen || test $? -eq 124
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReClip-linux-${{ github.sha }}
+          path: .artifacts/linux/ReClip-Release-x86_64.AppImage
+          if-no-files-found: error

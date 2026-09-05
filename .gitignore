@@ -1,8 +1,14 @@
+# Generated build trees and packaged artifacts live below hidden roots.
 .build/
-.swiftpm/
-DerivedData/
-xcuserdata/
-*.xcodeproj/xcuserdata/
+.artifacts/
+.third_party/
+
+# Keep legacy root-level generated paths ignored for existing checkouts.
+build/
+build-*/
+dist/
+*.app/
+*.AppImage
 .DS_Store
 
 # Local runtime files
@@ -10,4 +16,3 @@ downloads/
 venv/
 *.log
 *.pid
-com.reclip.local.plist
