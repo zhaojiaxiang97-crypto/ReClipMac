@@ -62,6 +62,10 @@ endif()
 
 qt_standard_project_setup(REQUIRES 6.8)
 
+# Keep the generated QML module directory away from the Unix executable path.
+# The module URI is ReClip, while the Linux linker also emits a ReClip binary.
+set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml")
+
 set_source_files_properties(qml/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE
 )
