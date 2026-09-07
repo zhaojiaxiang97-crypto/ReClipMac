@@ -64,9 +64,18 @@ bundle_bin="${output_directory}/Contents/Resources/bin"
 license_directory="${output_directory}/Contents/Resources/licenses"
 mkdir -p "${bundle_bin}" "${license_directory}"
 cp -L "${yt_dlp}" "${bundle_bin}/yt-dlp"
-cp -L "${ffmpeg}" "${bundle_bin}/ffmpeg"
-cp -L "${ffprobe}" "${bundle_bin}/ffprobe"
-chmod 755 "${bundle_bin}/yt-dlp" "${bundle_bin}/ffmpeg" "${bundle_bin}/ffprobe"
+cp -L "${ffmpeg}" "${output_directory}/Contents/MacOS/ffmpeg"
+cp -L "${ffprobe}" "${output_directory}/Contents/MacOS/ffprobe"
+chmod 755 "${bundle_bin}/yt-dlp" "${output_directory}/Contents/MacOS/ffmpeg" "${output_directory}/Contents/MacOS/ffprobe"
+cat > "${bundle_bin}/ffmpeg" <<'EOF'
+#!/bin/sh
+exec "$(dirname "$0")/../../MacOS/ffmpeg" "$@"
+EOF
+cat > "${bundle_bin}/ffprobe" <<'EOF'
+#!/bin/sh
+exec "$(dirname "$0")/../../MacOS/ffprobe" "$@"
+EOF
+chmod 755 "${bundle_bin}/ffmpeg" "${bundle_bin}/ffprobe"
 cp "${repository_root}/LICENSE" "${license_directory}/LICENSE"
 cp "${repository_root}/NOTICE" "${license_directory}/NOTICE"
 cp "${repository_root}/packaging/macos/THIRD_PARTY_NOTICES.md" "${output_directory}/Contents/Resources/THIRD_PARTY_NOTICES.md"
@@ -82,8 +91,8 @@ fi
 # to be a standalone macOS binary or a self-contained executable.
 "${macdeployqt}" "${output_directory}" \
     -qmldir="${repository_root}/qml" \
-    -executable="${bundle_bin}/ffmpeg" \
-    -executable="${bundle_bin}/ffprobe" \
+    -executable="${output_directory}/Contents/MacOS/ffmpeg" \
+    -executable="${output_directory}/Contents/MacOS/ffprobe" \
     -always-overwrite
 
 yt_dlp_version="$(${bundle_bin}/yt-dlp --version 2>/dev/null || printf 'unknown')"

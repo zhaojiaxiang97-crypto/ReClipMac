@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(ReClipQt VERSION 0.1 LANGUAGES CXX)
+project(ReClipQt VERSION 0.1.0 LANGUAGES CXX)
+
+if(APPLE)
+    set(RECLIP_MACOS_DEPLOYMENT_TARGET "14.0" CACHE STRING
+        "Minimum macOS version supported by ReClip")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "${RECLIP_MACOS_DEPLOYMENT_TARGET}"
+        CACHE STRING "Minimum macOS version supported by ReClip" FORCE)
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/Info.plist.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/ReClipInfo.plist"
+        @ONLY
+    )
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -76,6 +88,16 @@ qt_add_executable(${RECLIP_APP_TARGET}
     src/main.cpp
 )
 
+if(APPLE)
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/ReClip.icns"
+        PROPERTIES MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(${RECLIP_APP_TARGET} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/ReClip.icns"
+    )
+endif()
+
 target_include_directories(${RECLIP_APP_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(RECLIP_QML_FILES
@@ -126,8 +148,19 @@ qt_add_qml_module(${RECLIP_APP_TARGET}
 set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
     OUTPUT_NAME ReClip
     MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_BUNDLE_NAME "ReClip"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.reclip.app"
+    MACOSX_BUNDLE_ICON_FILE "ReClip.icns"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     WIN32_EXECUTABLE TRUE
 )
+
+if(APPLE)
+    set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/ReClipInfo.plist"
+    )
+endif()
 
 target_link_libraries(${RECLIP_APP_TARGET} PRIVATE
     Qt6::Quick

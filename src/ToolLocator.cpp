@@ -57,7 +57,7 @@ ToolLocator::ToolLocator(QObject *parent)
 
 bool ToolLocator::ready() const
 {
-    return m_ytDlp.available && m_ffmpeg.available;
+    return m_ytDlp.available && m_ffmpeg.available && m_ffprobe.available;
 }
 
 bool ToolLocator::checking() const
@@ -115,6 +115,31 @@ QString ToolLocator::ffmpegStatus() const
     return m_ffmpeg.message;
 }
 
+bool ToolLocator::ffprobeAvailable() const
+{
+    return m_ffprobe.available;
+}
+
+QString ToolLocator::ffprobePath() const
+{
+    return m_ffprobe.path;
+}
+
+QString ToolLocator::ffprobeCustomPath() const
+{
+    return m_ffprobe.customPath;
+}
+
+QString ToolLocator::ffprobeVersion() const
+{
+    return m_ffprobe.version;
+}
+
+QString ToolLocator::ffprobeStatus() const
+{
+    return m_ffprobe.message;
+}
+
 void ToolLocator::refresh()
 {
     if (m_process.state() != QProcess::NotRunning) {
@@ -123,10 +148,15 @@ void ToolLocator::refresh()
         m_process.waitForFinished(500);
     }
 
-    m_pendingTools = {QStringLiteral("yt-dlp"), QStringLiteral("ffmpeg")};
+    m_pendingTools = {
+        QStringLiteral("yt-dlp"),
+        QStringLiteral("ffmpeg"),
+        QStringLiteral("ffprobe")
+    };
     m_checking = true;
     prepareState(QStringLiteral("yt-dlp"));
     prepareState(QStringLiteral("ffmpeg"));
+    prepareState(QStringLiteral("ffprobe"));
     emit statusChanged();
     detectNext();
 }
@@ -166,17 +196,33 @@ QString ToolLocator::normalizeToolName(const QString &toolName)
 
 bool ToolLocator::isKnownTool(const QString &toolName)
 {
-    return toolName == QStringLiteral("yt-dlp") || toolName == QStringLiteral("ffmpeg");
+    return toolName == QStringLiteral("yt-dlp")
+        || toolName == QStringLiteral("ffmpeg")
+        || toolName == QStringLiteral("ffprobe");
 }
 
 ToolLocator::ToolState &ToolLocator::stateFor(const QString &toolName)
 {
-    return normalizeToolName(toolName) == QStringLiteral("yt-dlp") ? m_ytDlp : m_ffmpeg;
+    const QString normalizedName = normalizeToolName(toolName);
+    if (normalizedName == QStringLiteral("yt-dlp")) {
+        return m_ytDlp;
+    }
+    if (normalizedName == QStringLiteral("ffmpeg")) {
+        return m_ffmpeg;
+    }
+    return m_ffprobe;
 }
 
 const ToolLocator::ToolState &ToolLocator::stateFor(const QString &toolName) const
 {
-    return normalizeToolName(toolName) == QStringLiteral("yt-dlp") ? m_ytDlp : m_ffmpeg;
+    const QString normalizedName = normalizeToolName(toolName);
+    if (normalizedName == QStringLiteral("yt-dlp")) {
+        return m_ytDlp;
+    }
+    if (normalizedName == QStringLiteral("ffmpeg")) {
+        return m_ffmpeg;
+    }
+    return m_ffprobe;
 }
 
 QString ToolLocator::configuredPath(const QString &toolName) const
@@ -242,7 +288,10 @@ void ToolLocator::detectNext()
 
         m_currentTool = toolName;
         m_process.setProgram(state.path);
-        m_process.setArguments({QStringLiteral("--version")});
+        const QString versionArgument = toolName == QStringLiteral("yt-dlp")
+            ? QStringLiteral("--version")
+            : QStringLiteral("-version");
+        m_process.setArguments({versionArgument});
         m_process.setProcessChannelMode(QProcess::MergedChannels);
         m_process.start();
         return;

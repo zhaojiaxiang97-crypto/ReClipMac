@@ -22,6 +22,11 @@ class ToolLocator : public QObject
     Q_PROPERTY(QString ffmpegCustomPath READ ffmpegCustomPath NOTIFY statusChanged)
     Q_PROPERTY(QString ffmpegVersion READ ffmpegVersion NOTIFY statusChanged)
     Q_PROPERTY(QString ffmpegStatus READ ffmpegStatus NOTIFY statusChanged)
+    Q_PROPERTY(bool ffprobeAvailable READ ffprobeAvailable NOTIFY statusChanged)
+    Q_PROPERTY(QString ffprobePath READ ffprobePath NOTIFY statusChanged)
+    Q_PROPERTY(QString ffprobeCustomPath READ ffprobeCustomPath NOTIFY statusChanged)
+    Q_PROPERTY(QString ffprobeVersion READ ffprobeVersion NOTIFY statusChanged)
+    Q_PROPERTY(QString ffprobeStatus READ ffprobeStatus NOTIFY statusChanged)
 
 public:
     explicit ToolLocator(QObject *parent = nullptr);
@@ -40,6 +45,12 @@ public:
     QString ffmpegCustomPath() const;
     QString ffmpegVersion() const;
     QString ffmpegStatus() const;
+
+    bool ffprobeAvailable() const;
+    QString ffprobePath() const;
+    QString ffprobeCustomPath() const;
+    QString ffprobeVersion() const;
+    QString ffprobeStatus() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void setCustomPath(const QString &toolName, const QString &path);
@@ -73,4 +84,5 @@ private:
     bool m_checking = false;
     ToolState m_ytDlp;
     ToolState m_ffmpeg;
+    ToolState m_ffprobe;
 };

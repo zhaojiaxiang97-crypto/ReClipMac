@@ -40,7 +40,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (locator.ytDlpStatus().isEmpty() || locator.ffmpegStatus().isEmpty()) {
+    if (locator.ytDlpStatus().isEmpty()
+        || locator.ffmpegStatus().isEmpty()
+        || locator.ffprobeStatus().isEmpty()) {
         return 2;
     }
 

@@ -171,6 +171,19 @@ Item {
                 onClearRequested: root.settings.ffmpegPath = ""
             }
 
+            ToolStatusRow {
+                Layout.fillWidth: true
+                displayName: "FFprobe"
+                available: root.tools ? root.tools.ffprobeAvailable : false
+                checking: root.tools ? root.tools.checking : false
+                version: root.tools ? root.tools.ffprobeVersion : ""
+                path: root.tools ? root.tools.ffprobePath : ""
+                customPath: root.tools ? root.tools.ffprobeCustomPath : ""
+                statusText: root.tools ? root.tools.ffprobeStatus : ""
+                onPathSubmitted: function (path) { root.tools.setCustomPath("ffprobe", path) }
+                onClearRequested: root.tools.clearCustomPath("ffprobe")
+            }
+
             AppButton {
                 Layout.alignment: root.compact ? Qt.AlignHCenter : Qt.AlignLeft
                 text: root.tools && root.tools.checking ? "正在检测" : "重新检测工具"
