@@ -9,6 +9,7 @@ build_directory="${RECLIP_BUILD_DIR:-${repository_root}/.build/package-macos-${c
 output_directory="${RECLIP_OUTPUT_DIR:-${repository_root}/.artifacts/macos/ReClip-${configuration}.app}"
 qt_root="${RECLIP_QT_ROOT:-}"
 tool_bin="${RECLIP_TOOL_BIN:-}"
+kirigami_prefix="${RECLIP_KIRIGAMI_PREFIX:-${repository_root}/.third_party/install}"
 
 die() {
     printf 'error: %s\n' "$1" >&2
@@ -59,6 +60,7 @@ fi
 
 mkdir -p "$(dirname -- "${output_directory}")"
 cp -R "${source_app}" "${output_directory}"
+rm -rf "${output_directory}/Contents/MacOS/qml"
 
 bundle_bin="${output_directory}/Contents/Resources/bin"
 license_directory="${output_directory}/Contents/Resources/licenses"
@@ -80,6 +82,31 @@ cp "${repository_root}/LICENSE" "${license_directory}/LICENSE"
 cp "${repository_root}/NOTICE" "${license_directory}/NOTICE"
 cp "${repository_root}/packaging/macos/THIRD_PARTY_NOTICES.md" "${output_directory}/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
+kirigami_qml="${kirigami_prefix}/lib/qml/org/kde/kirigami"
+if [[ -d "${kirigami_qml}" ]]; then
+    mkdir -p "${output_directory}/Contents/Resources/qml/org/kde"
+    cp -R "${kirigami_qml}" "${output_directory}/Contents/Resources/qml/org/kde/"
+fi
+
+copy_qml_module() {
+    local module="$1"
+    local source="${qt_root}/qml/${module}"
+    local destination="${output_directory}/Contents/Resources/qml/$(dirname -- "${module}")"
+    [[ -d "${source}" ]] || return 0
+    mkdir -p "${destination}"
+    cp -R "${source}" "${destination}/"
+}
+
+for qml_module in \
+    QtQuick/Controls \
+    QtQuick/Dialogs \
+    QtQuick/Layouts \
+    QtQuick/Shapes \
+    QtQuick/Templates \
+    QtQuick/Window; do
+    copy_qml_module "${qml_module}"
+done
+
 ffmpeg_license="$(find "$(dirname -- "${ffmpeg}")" -maxdepth 2 -type f \( -iname 'LICENSE*' -o -iname 'COPYING*' \) -print -quit 2>/dev/null || true)"
 if [[ -n "${ffmpeg_license}" ]]; then
     cp "${ffmpeg_license}" "${license_directory}/FFmpeg-LICENSE"
@@ -90,7 +117,6 @@ fi
 # Also deploy dylibs referenced by bundled FFmpeg binaries. yt-dlp is expected
 # to be a standalone macOS binary or a self-contained executable.
 "${macdeployqt}" "${output_directory}" \
-    -qmldir="${repository_root}/qml" \
     -executable="${output_directory}/Contents/MacOS/ffmpeg" \
     -executable="${output_directory}/Contents/MacOS/ffprobe" \
     -always-overwrite
@@ -111,6 +137,18 @@ if [[ -n "${RECLIP_CODESIGN_IDENTITY:-}" ]]; then
     codesign --deep --force --options runtime --timestamp \
         --sign "${RECLIP_CODESIGN_IDENTITY}" "${output_directory}"
     codesign --verify --deep --strict --verbose=2 "${output_directory}"
+else
+    find "${output_directory}/Contents" \( -type f -o -type l \) \( -perm -111 -o -name '*.dylib' \) \
+        -exec codesign --remove-signature '{}' \; 2>/dev/null || true
+    find "${output_directory}/Contents" -type d -name '*.framework' \
+        -exec codesign --remove-signature '{}' \; 2>/dev/null || true
+    codesign --remove-signature "${output_directory}" 2>/dev/null || true
+    find "${output_directory}/Contents" \( -type f -o -type l \) \( -perm -111 -o -name '*.dylib' \) \
+        -exec codesign --force --sign - --timestamp=none '{}' \;
+    find "${output_directory}/Contents" -type d -name '*.framework' \
+        -exec codesign --force --sign - --timestamp=none '{}' \;
+    codesign --force --sign - --timestamp=none "${output_directory}"
+    codesign --verify --deep --strict "${output_directory}"
 fi
 
 if [[ -n "${RECLIP_NOTARY_PROFILE:-}" ]]; then

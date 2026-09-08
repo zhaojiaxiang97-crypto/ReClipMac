@@ -58,6 +58,8 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationVersion(QStringLiteral("0.1.0"));
 
     QQmlApplicationEngine engine;
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/qml");
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/../Resources/qml");
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
