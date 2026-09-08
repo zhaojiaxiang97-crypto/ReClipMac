@@ -77,8 +77,8 @@ chmod 755 "${appdir}/usr/bin/ReClip" "${appdir}/usr/bin/yt-dlp" "${appdir}/usr/b
 cat > "${appdir}/ReClip.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=ReClip
-Comment=Cross-platform media downloader
+Name=Video Downloader
+Comment=Cross-platform video downloader
 Exec=ReClip
 Icon=ReClip
 Terminal=false

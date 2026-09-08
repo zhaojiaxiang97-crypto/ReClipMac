@@ -13,7 +13,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusInput
+        radius: Theme.radiusPanel
         color: Theme.surface
         border.width: 1
         border.color: downloads && downloads.state === "failed" ? Theme.dangerBorder : Theme.border
@@ -74,22 +74,30 @@ Item {
             spacing: 12
 
             Label {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: root.downloads && root.downloads.speed.length > 0 ? root.downloads.speed : ""
                 color: Theme.muted
                 font.family: Theme.monoFamily
                 font.pixelSize: 12
+                elide: Text.ElideRight
             }
 
             Label {
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: compact ? 132 : 180
                 text: root.downloads && root.downloads.eta.length > 0 ? "剩余 " + root.downloads.eta : ""
                 color: Theme.muted
                 font.family: Theme.monoFamily
                 font.pixelSize: 12
+                elide: Text.ElideRight
             }
 
-            Item { Layout.fillWidth: true }
-
             AppButton {
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                Layout.minimumWidth: compact ? 92 : 104
+                Layout.preferredWidth: compact ? 92 : 104
+                Layout.maximumWidth: compact ? 104 : 120
                 text: "取消"
                 variant: "ghost"
                 compact: true
@@ -127,6 +135,15 @@ Item {
                 variant: "primary"
                 compact: true
                 onClicked: root.downloads.openOutput()
+            }
+
+            AppButton {
+                visible: root.downloads && root.downloads.state === "completed" && Qt.platform.os === "android"
+                text: "分享"
+                iconText: "↑"
+                variant: "secondary"
+                compact: true
+                onClicked: root.downloads.shareOutput()
             }
 
             AppButton {

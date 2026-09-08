@@ -15,11 +15,14 @@ ApplicationWindow {
     color: Theme.background
 
     property string currentPage: "new"
-    readonly property bool compactWidth: width < 700
-    readonly property bool wideWidth: width >= 1060
+    property string pendingExternalUrl: ""
+    readonly property bool mobilePlatform: Qt.platform.os === "android" || Qt.platform.os === "ios"
+    readonly property bool compactWidth: mobilePlatform || width < 700
+    readonly property bool wideWidth: !mobilePlatform && width >= 1060
     readonly property var appController: controller
     readonly property var appSettings: settings
     readonly property var toolLocator: tools
+    readonly property var platformStorage: storage
     readonly property var mediaInspector: inspector
     readonly property var downloadManager: downloads
     readonly property var downloadQueue: queue
@@ -38,6 +41,38 @@ ApplicationWindow {
         window.currentPage = page
     }
 
+    function consumeIncomingUrl() {
+        if (controller.incomingUrl.length === 0) {
+            return
+        }
+
+        window.pendingExternalUrl = controller.incomingUrl
+        window.currentPage = "new"
+        controller.clearIncomingUrl()
+    }
+
+    function handleBackAction() {
+        if (window.currentPage !== "new") {
+            window.currentPage = "new"
+            return true
+        }
+        return false
+    }
+
+    Keys.onReleased: function (event) {
+        if (event.key === Qt.Key_Back && window.handleBackAction()) {
+            event.accepted = true
+        }
+    }
+
+    // Android delivers the system back action as a window close request on
+    // some Qt/Android combinations instead of a Qt.Key_Back event.
+    onClosing: function (event) {
+        if (window.mobilePlatform && window.handleBackAction()) {
+            event.accepted = false
+        }
+    }
+
     Binding {
         target: Theme
         property: "darkMode"
@@ -51,8 +86,8 @@ ApplicationWindow {
     palette.text: Theme.text
     palette.button: Theme.surface
     palette.buttonText: Theme.text
-    palette.highlight: Theme.violet
-    palette.highlightedText: "#FFFFFF"
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.accentText
 
     AppController {
         id: controller
@@ -60,6 +95,10 @@ ApplicationWindow {
 
     AppSettings {
         id: settings
+    }
+
+    PlatformStorage {
+        id: storage
     }
 
     ToolLocator {
@@ -79,6 +118,8 @@ ApplicationWindow {
         ffmpegPath: tools.ffmpegPath
         downloadDirectory: settings.downloadDirectory
         outputFormat: settings.defaultOutputFormat
+        exportDirectoryUri: settings.exportDirectoryUri
+        platformStorage: window.platformStorage
     }
 
     DownloadQueue {
@@ -86,6 +127,24 @@ ApplicationWindow {
         ytDlpPath: tools.ytDlpPath
         ffmpegPath: tools.ffmpegPath
         downloadDirectory: settings.downloadDirectory
+        exportDirectoryUri: settings.exportDirectoryUri
+        platformStorage: window.platformStorage
+    }
+
+    Timer {
+        id: notificationRetryTimer
+        interval: 250
+        repeat: true
+        running: window.mobilePlatform
+
+        onTriggered: {
+            var taskId = window.downloadQueue.consumeAndroidNotificationRetry()
+            if (taskId.length === 0) {
+                return
+            }
+            window.downloadQueue.retryTask(taskId)
+            stop()
+        }
     }
 
     Connections {
@@ -103,6 +162,24 @@ ApplicationWindow {
             downloads.outputFormat = settings.defaultOutputFormat
         }
     }
+
+    Connections {
+        target: platformStorage
+
+        function onExportDirectorySelected(uri, label) {
+            settings.setExportDirectory(uri, label)
+        }
+    }
+
+    Connections {
+        target: controller
+
+        function onIncomingUrlChanged() {
+            window.consumeIncomingUrl()
+        }
+    }
+
+    Component.onCompleted: window.consumeIncomingUrl()
 
     Component {
         id: desktopShell
@@ -125,15 +202,21 @@ ApplicationWindow {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 68
-                    color: Theme.background
-                    border.width: 1
-                    border.color: Theme.border
+                    Layout.preferredHeight: 64
+                    color: Theme.surface
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+                        color: Theme.border
+                    }
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 28
-                        anchors.rightMargin: 28
+                        anchors.leftMargin: 24
+                        anchors.rightMargin: 24
                         spacing: 14
 
                         ColumnLayout {
@@ -144,16 +227,17 @@ ApplicationWindow {
                                 text: window.currentPage === "new" ? "新建下载" : (window.currentPage === "queue" ? "下载队列" : "设置")
                                 color: Theme.text
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 18
+                                font.pixelSize: 20
                                 font.weight: Font.DemiBold
+                                font.letterSpacing: 0.2
                             }
 
                             Label {
-                                text: window.currentPage === "new" ? "Signal Desk  ·  把链接变成文件"
+                                text: window.currentPage === "new" ? "粘贴链接，快速保存媒体"
                                       : (window.currentPage === "queue" ? window.downloadQueue.statusText : "让下载流程保持顺手")
                                 color: Theme.muted
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                             }
                         }
 
@@ -180,12 +264,14 @@ ApplicationWindow {
                     currentIndex: window.pageIndex()
 
                     NewDownloadPage {
+                        id: desktopNewDownloadPage
                         controller: window.appController
                         settings: window.appSettings
                         tools: window.toolLocator
                         inspector: window.mediaInspector
                         downloads: window.downloadManager
                         queue: window.downloadQueue
+                        initialUrl: window.pendingExternalUrl
                         onOpenQueue: window.navigate("queue")
                         onOpenTools: window.navigate("settings")
                     }
@@ -198,13 +284,14 @@ ApplicationWindow {
                         settings: window.appSettings
                         tools: window.toolLocator
                         controller: window.appController
+                        platformStorage: window.platformStorage
                     }
                 }
             }
 
             ActivityPanel {
                 visible: window.wideWidth
-                Layout.preferredWidth: window.wideWidth ? 320 : 0
+                Layout.preferredWidth: window.wideWidth ? 300 : 0
                 queue: window.downloadQueue
                 onOpenQueue: window.navigate("queue")
             }
@@ -220,49 +307,35 @@ ApplicationWindow {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 64
-                color: Theme.surface
-                border.width: 1
-                border.color: Theme.border
+                Layout.preferredHeight: 76
+                color: Theme.background
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 12
-
-                    Rectangle {
-                        Layout.preferredWidth: 30
-                        Layout.preferredHeight: 30
-                        radius: 9
-                        color: Theme.violet
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "⌁"
-                            color: "#FFFFFF"
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 18
-                            font.weight: Font.Bold
-                        }
-                    }
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 10
+                    anchors.bottomMargin: 8
+                    spacing: 12
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 0
+                        spacing: 1
 
                         Label {
-                            text: window.appController.productName
+                            text: window.currentPage === "new" ? "新建下载"
+                                  : (window.currentPage === "queue" ? "下载队列" : "设置")
                             color: Theme.text
                             font.family: Theme.fontFamily
-                            font.pixelSize: 15
-                            font.weight: Font.Bold
+                            font.pixelSize: 26
+                            font.weight: Font.Medium
                         }
 
                         Label {
-                            text: window.currentPage === "new" ? "新建下载" : (window.currentPage === "queue" ? "下载队列" : "设置")
+                            text: window.appController.productName
                             color: Theme.muted
                             font.family: Theme.fontFamily
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                         }
                     }
 
@@ -281,12 +354,14 @@ ApplicationWindow {
                 currentIndex: window.pageIndex()
 
                 NewDownloadPage {
+                    id: mobileNewDownloadPage
                     controller: window.appController
                     settings: window.appSettings
                     tools: window.toolLocator
                     inspector: window.mediaInspector
                     downloads: window.downloadManager
                     queue: window.downloadQueue
+                    initialUrl: window.pendingExternalUrl
                     onOpenQueue: window.navigate("queue")
                     onOpenTools: window.navigate("settings")
                 }
@@ -295,11 +370,12 @@ ApplicationWindow {
                     queue: window.downloadQueue
                 }
 
-                SettingsPage {
-                    settings: window.appSettings
-                    tools: window.toolLocator
-                    controller: window.appController
-                }
+                    SettingsPage {
+                        settings: window.appSettings
+                        tools: window.toolLocator
+                        controller: window.appController
+                        platformStorage: window.platformStorage
+                    }
             }
 
             MobileBottomBar {

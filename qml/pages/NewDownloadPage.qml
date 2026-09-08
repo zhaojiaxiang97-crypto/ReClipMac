@@ -12,6 +12,7 @@ Item {
     property var downloads: null
     property var queue: null
     property bool compact: width < 700
+    property string initialUrl: ""
 
     signal openQueue()
     signal openTools()
@@ -23,6 +24,17 @@ Item {
         }
     }
 
+    function acceptExternalUrl(url) {
+        var value = (url || "").trim()
+        if (value.length === 0) {
+            return
+        }
+        capture.text = value
+        startInspection()
+    }
+
+    onInitialUrlChanged: acceptExternalUrl(initialUrl)
+
     ScrollView {
         id: scroll
         anchors.fill: parent
@@ -31,13 +43,14 @@ Item {
 
         ColumnLayout {
             id: content
-            width: Math.max(scroll.availableWidth - (root.compact ? 32 : 72), 0)
-            x: root.compact ? 16 : 36
-            y: root.compact ? 16 : 28
-            spacing: root.compact ? 16 : 22
+            width: Math.max(scroll.availableWidth - (root.compact ? 32 : Theme.pageGutter * 2), 0)
+            x: root.compact ? 16 : Theme.pageGutter
+            y: root.compact ? 16 : Theme.pageTop
+            spacing: root.compact ? 16 : Theme.pageSpacing
 
             RowLayout {
                 Layout.fillWidth: true
+                visible: !root.compact
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -47,8 +60,8 @@ Item {
                         text: "新建下载"
                         color: Theme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.compact ? 24 : 28
-                        font.weight: Font.Bold
+                        font.pixelSize: root.compact ? 28 : 24
+                        font.weight: Font.DemiBold
                     }
 
                     Label {
@@ -91,7 +104,7 @@ Item {
                 visible: tools && !tools.ready && !tools.checking
                 tone: "warning"
                 title: "下载工具还没有准备好"
-                body: "ReClipQt 需要 yt-dlp 和 FFmpeg 才能解析和处理媒体。"
+                body: "Video Downloader 需要 yt-dlp 和 FFmpeg 才能解析和处理媒体。"
                 actionText: "打开工具诊断"
                 onActionTriggered: root.openTools()
             }

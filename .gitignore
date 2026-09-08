@@ -2,6 +2,7 @@
 .build/
 .artifacts/
 .third_party/
+.scratch/
 
 # Keep legacy root-level generated paths ignored for existing checkouts.
 build/
@@ -16,3 +17,8 @@ downloads/
 venv/
 *.log
 *.pid
+
+# Optional Android runtime dependencies are staged into the package source
+# only for local/CI builds; the large AARs are fetched and verified separately.
+android/libs/*.aar
+android/libs/*.jar

@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>ReClip</string>
+    <string>Video Downloader</string>
     <key>CFBundleName</key>
-    <string>ReClip</string>
+    <string>Video Downloader</string>
     <key>CFBundleExecutable</key>
     <string>ReClip</string>
     <key>CFBundleIdentifier</key>

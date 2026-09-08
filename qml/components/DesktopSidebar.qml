@@ -7,35 +7,37 @@ Rectangle {
 
     property string currentPage: "new"
     property bool toolsReady: true
-    property string productName: "ReClipQt"
+    property string productName: "Video Downloader"
     signal navigate(string page)
 
-    Layout.preferredWidth: 224
+    Layout.preferredWidth: Theme.sidebarWidth
     Layout.fillHeight: true
-    color: Theme.ink
+    color: Theme.sidebarBackground
+    border.width: 1
+    border.color: Theme.border
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 8
+        anchors.margins: 12
+        spacing: 6
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.bottomMargin: 18
+            Layout.bottomMargin: 16
             spacing: 10
 
             Rectangle {
-                Layout.preferredWidth: 34
-                Layout.preferredHeight: 34
-                radius: 10
-                color: Theme.violet
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                radius: Theme.radiusControl
+                color: Theme.accent
 
                 Text {
                     anchors.centerIn: parent
-                    text: "⌁"
-                    color: "#FFFFFF"
+                    text: "↓"
+                    color: Theme.accentText
                     font.family: Theme.fontFamily
-                    font.pixelSize: 21
+                    font.pixelSize: 20
                     font.weight: Font.Bold
                 }
             }
@@ -46,17 +48,17 @@ Rectangle {
 
                 Label {
                     text: root.productName
-                    color: "#FFFFFF"
+                    color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 16
-                    font.weight: Font.Bold
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
                 }
 
                 Label {
-                    text: "Signal Desk"
-                    color: "#8090AA"
+                    text: "媒体下载工作台"
+                    color: Theme.subtle
                     font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                 }
             }
         }
@@ -80,7 +82,7 @@ Rectangle {
         NavigationItem {
             Layout.fillWidth: true
             text: "设置"
-            iconText: "⚙"
+            iconText: "settings"
             selected: root.currentPage === "settings"
             onClicked: root.navigate("settings")
         }
@@ -90,14 +92,14 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 1
-            color: "#27344D"
+            color: Theme.border
         }
 
         Button {
             Layout.fillWidth: true
-            implicitHeight: 48
-            leftPadding: 10
-            rightPadding: 10
+            implicitHeight: 52
+            leftPadding: 11
+            rightPadding: 11
             onClicked: root.navigate("settings")
 
             contentItem: RowLayout {
@@ -107,7 +109,7 @@ Rectangle {
                     Layout.preferredWidth: 8
                     Layout.preferredHeight: 8
                     radius: 4
-                    color: root.toolsReady ? Theme.signal : Theme.coral
+                color: root.toolsReady ? Theme.signal : Theme.danger
                 }
 
                 ColumnLayout {
@@ -116,14 +118,14 @@ Rectangle {
 
                     Label {
                         text: "工具状态"
-                        color: "#AAB6CA"
+                        color: Theme.muted
                         font.family: Theme.fontFamily
                         font.pixelSize: 11
                     }
 
                     Label {
                         text: root.toolsReady ? "yt-dlp / FFmpeg 已就绪" : "需要检查工具"
-                        color: root.toolsReady ? "#69D6C8" : "#F0B8A8"
+                        color: root.toolsReady ? Theme.signal : Theme.warningText
                         font.family: Theme.fontFamily
                         font.pixelSize: 10
                         elide: Text.ElideRight
@@ -132,15 +134,17 @@ Rectangle {
             }
 
             background: Rectangle {
-                color: parent.hovered ? "#202D46" : "transparent"
-                radius: Theme.radiusControl
+                color: parent.hovered ? Theme.surface : Theme.surfaceAlt
+                radius: Theme.radiusPanel
+                border.width: 1
+                border.color: Theme.border
             }
         }
 
         Label {
             Layout.fillWidth: true
-            text: "Qt / QML  ·  0.1"
-            color: "#66758F"
+            text: "Video Downloader  ·  0.1"
+            color: Theme.subtle
             font.family: Theme.monoFamily
             font.pixelSize: 10
             topPadding: 8

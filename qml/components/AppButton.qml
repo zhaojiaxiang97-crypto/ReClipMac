@@ -9,7 +9,7 @@ Button {
     property bool compact: false
 
     implicitHeight: compact ? 34 : 40
-    implicitWidth: Math.max(92, contentItem.implicitWidth + leftPadding + rightPadding)
+    implicitWidth: Math.max(88, contentItem.implicitWidth + leftPadding + rightPadding)
     leftPadding: compact ? 12 : 16
     rightPadding: compact ? 12 : 16
     topPadding: 0
@@ -18,7 +18,8 @@ Button {
 
     font.family: Theme.fontFamily
     font.pixelSize: compact ? 12 : 14
-    font.weight: Font.DemiBold
+    font.weight: Font.Medium
+    font.letterSpacing: 0.1
 
     contentItem: Row {
         spacing: root.iconText.length > 0 ? 8 : 0
@@ -29,8 +30,8 @@ Button {
             text: root.iconText
             color: root.contentColor
             font.family: Theme.fontFamily
-            font.pixelSize: root.compact ? 14 : 16
-            font.weight: Font.DemiBold
+            font.pixelSize: root.compact ? 14 : 15
+            font.weight: Font.Medium
             anchors.verticalCenter: parent.verticalCenter
         }
 
@@ -43,28 +44,31 @@ Button {
     }
 
     readonly property color contentColor: {
-        if (root.variant === "primary" || root.variant === "danger") {
+        if (root.variant === "primary") {
+            return Theme.accentText
+        }
+        if (root.variant === "danger") {
             return "#FFFFFF"
         }
         return root.enabled ? Theme.text : Theme.subtle
     }
 
     background: Rectangle {
-        radius: Theme.radiusControl
+        radius: root.variant === "primary" ? Theme.radiusAction : Theme.radiusControl
         color: {
             if (!root.enabled) {
                 return Theme.surfaceAlt
             }
             if (root.variant === "primary") {
-                return root.down ? Qt.darker(Theme.violet, 1.12) : (root.hovered ? Qt.lighter(Theme.violet, 1.08) : Theme.violet)
+                return root.down ? Qt.darker(Theme.accent, 1.08) : (root.hovered ? Theme.accentHover : Theme.accent)
             }
             if (root.variant === "danger") {
-                return root.down ? Qt.darker(Theme.coral, 1.12) : (root.hovered ? Qt.lighter(Theme.coral, 1.06) : Theme.coral)
+                return root.down ? Qt.darker(Theme.danger, 1.12) : (root.hovered ? Qt.lighter(Theme.danger, 1.06) : Theme.danger)
             }
             if (root.variant === "ghost") {
                 return root.down || root.hovered ? Theme.surfaceAlt : "transparent"
             }
-            return root.down || root.hovered ? Theme.surfaceAlt : Theme.surface
+            return root.down || root.hovered ? Theme.violetSurface : Theme.surface
         }
         border.width: root.variant === "primary" || root.variant === "danger" || root.variant === "ghost" ? 0 : 1
         border.color: Theme.border
@@ -76,7 +80,7 @@ Button {
             radius: parent.radius + 2
             color: "transparent"
             border.width: 2
-            border.color: Theme.violet
+            border.color: Theme.accent
         }
     }
 }

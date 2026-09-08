@@ -16,24 +16,25 @@ Item {
 
         ColumnLayout {
             id: content
-            width: Math.max(scroll.availableWidth - (root.compact ? 32 : 72), 0)
-            x: root.compact ? 16 : 36
-            y: root.compact ? 16 : 28
-            spacing: root.compact ? 16 : 22
+            width: Math.max(scroll.availableWidth - (root.compact ? 32 : Theme.pageGutter * 2), 0)
+            x: root.compact ? 16 : Theme.pageGutter
+            y: root.compact ? 16 : Theme.pageTop
+            spacing: root.compact ? 16 : Theme.pageSpacing
 
             RowLayout {
                 Layout.fillWidth: true
 
                 ColumnLayout {
                     Layout.fillWidth: true
+                    visible: !root.compact
                     spacing: 4
 
                     Label {
                         text: "下载队列"
                         color: Theme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.compact ? 24 : 28
-                        font.weight: Font.Bold
+                        font.pixelSize: root.compact ? 28 : 24
+                        font.weight: Font.DemiBold
                     }
 
                     Label {
@@ -45,10 +46,11 @@ Item {
                 }
 
                 AppButton {
-                    visible: queue && queue.tasks.length > 0 && !root.compact
-                    text: "开始全部"
+                    visible: queue && queue.tasks.length > 0
+                    text: root.compact ? "全部开始" : "开始全部"
                     iconText: "▶"
                     variant: "primary"
+                    compact: root.compact
                     enabled: !queue.running
                     onClicked: queue.startAll()
                 }
@@ -86,6 +88,7 @@ Item {
                         onCancelClicked: function (taskId) { queue.cancelTask(taskId) }
                         onRetryClicked: function (taskId) { queue.retryTask(taskId) }
                         onOpenClicked: function (taskId) { queue.openTask(taskId) }
+                        onShareClicked: function (taskId) { queue.shareTask(taskId) }
                         onRemoveClicked: function (taskId) { queue.removeTask(taskId) }
                     }
                 }

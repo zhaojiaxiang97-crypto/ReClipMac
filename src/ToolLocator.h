@@ -6,6 +6,8 @@
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
 
+#include "AndroidDownloadEngine.h"
+
 class ToolLocator : public QObject
 {
     Q_OBJECT
@@ -79,6 +81,7 @@ private:
     void finishCurrent(bool available, const QString &version, const QString &message);
 
     QProcess m_process;
+    AndroidDownloadEngine m_androidEngine;
     QStringList m_pendingTools;
     QString m_currentTool;
     bool m_checking = false;

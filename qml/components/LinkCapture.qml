@@ -18,10 +18,10 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusInput
+        radius: Theme.radiusPanel
         color: Theme.surface
         border.width: 1
-        border.color: dropArea.containsDrag ? Theme.violet : Theme.border
+        border.color: dropArea.containsDrag ? Theme.accent : Theme.border
 
         Rectangle {
             anchors.left: parent.left
@@ -44,6 +44,23 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 10
+
+            Rectangle {
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                radius: Theme.radiusSmall
+                color: Theme.violetSurface
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "↓"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 19
+                    font.weight: Font.DemiBold
+                }
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -53,7 +70,7 @@ Item {
                     text: "媒体链接"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: 15
                     font.weight: Font.DemiBold
                 }
 
@@ -84,7 +101,7 @@ Item {
             wrapMode: TextEdit.WrapAnywhere
             color: Theme.text
             font.family: Theme.monoFamily
-            font.pixelSize: root.compact ? 13 : 12
+            font.pixelSize: root.compact ? 13 : 13
             leftPadding: 13
             rightPadding: 13
             topPadding: 12
@@ -94,9 +111,9 @@ Item {
 
             background: Rectangle {
                 radius: Theme.radiusControl
-                color: Theme.background
+                color: Theme.surfaceAlt
                 border.width: urlField.activeFocus ? 2 : 1
-                border.color: urlField.activeFocus ? Theme.violet : Theme.border
+                border.color: urlField.activeFocus ? Theme.accent : Theme.border
             }
 
             Keys.onPressed: function (event) {
@@ -116,6 +133,7 @@ Item {
                 text: root.busy ? "正在解析" : "解析媒体"
                 iconText: root.busy ? "◌" : "⌁"
                 variant: "primary"
+                compact: !root.compact
                 enabled: !root.busy && urlField.text.trim().length > 0
                 onClicked: root.parseRequested()
             }
@@ -125,6 +143,7 @@ Item {
                 text: "从剪贴板粘贴"
                 iconText: "▣"
                 variant: "secondary"
+                compact: !root.compact
                 enabled: !root.busy
                 onClicked: root.pasteRequested()
             }
@@ -133,6 +152,7 @@ Item {
                 visible: !root.compact
                 text: "清空"
                 variant: "ghost"
+                compact: true
                 enabled: !root.busy && urlField.text.length > 0
                 onClicked: {
                     urlField.clear()
@@ -164,10 +184,10 @@ Item {
         anchors.fill: parent
         z: 11
         visible: dropArea.containsDrag
-        radius: Theme.radiusInput
-        color: Qt.rgba(108 / 255, 92 / 255, 231 / 255, 0.10)
+        radius: Theme.radiusPanel
+        color: Qt.alpha(Theme.accent, 0.10)
         border.width: 2
-        border.color: Theme.violet
+        border.color: Theme.accent
 
         Column {
             anchors.centerIn: parent
@@ -176,14 +196,14 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "⌁"
-                color: Theme.violet
+                color: Theme.accent
                 font.pixelSize: 30
                 font.weight: Font.Bold
             }
 
             Label {
                 text: "松开以解析链接"
-                color: Theme.violet
+                color: Theme.accent
                 font.family: Theme.fontFamily
                 font.pixelSize: 16
                 font.weight: Font.DemiBold

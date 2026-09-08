@@ -99,7 +99,7 @@ yt_dlp_version="$(${bundle_bin}/yt-dlp --version 2>/dev/null || printf 'unknown'
 ffmpeg_version="$(${bundle_bin}/ffmpeg -version 2>/dev/null | sed -n '1p' || printf 'unknown')"
 cat > "${output_directory}/Contents/Resources/runtime-manifest.json" <<EOF
 {
-  "application": "ReClip",
+  "application": "Video Downloader",
   "configuration": "${configuration}",
   "ytDlpVersion": "${yt_dlp_version}",
   "ffmpegVersion": "${ffmpeg_version}",

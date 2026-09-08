@@ -1,4 +1,5 @@
 #include "AppSettings.h"
+#include "PlatformPaths.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -10,12 +11,14 @@ AppSettings::AppSettings(QObject *parent)
 {
     QSettings settings;
     m_downloadDirectory = settings.value(QStringLiteral("downloadDirectory"), defaultDownloadDirectory()).toString();
+    m_exportDirectoryUri = settings.value(QStringLiteral("storage/exportDirectoryUri")).toString().trimmed();
+    m_exportDirectoryLabel = settings.value(QStringLiteral("storage/exportDirectoryLabel")).toString().trimmed();
     m_ytDlpPath = settings.value(QStringLiteral("tools/yt-dlpPath")).toString();
     m_ffmpegPath = settings.value(QStringLiteral("tools/ffmpegPath")).toString();
     m_defaultOutputFormat = settings.value(QStringLiteral("defaultOutputFormat"), QStringLiteral("mp4")).toString();
     m_defaultFormatStrategy = settings.value(QStringLiteral("defaultFormatStrategy"), QStringLiteral("best")).toString();
     m_language = settings.value(QStringLiteral("language"), QStringLiteral("system")).toString();
-    m_theme = settings.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
+    m_theme = settings.value(QStringLiteral("theme"), defaultTheme()).toString();
 }
 
 QString AppSettings::downloadDirectory() const
@@ -56,6 +59,65 @@ QString AppSettings::downloadDirectoryStatus() const
         return QStringLiteral("目录不可写，请选择有权限的位置");
     }
     return QStringLiteral("目录可用");
+}
+
+QString AppSettings::exportDirectoryUri() const
+{
+    return m_exportDirectoryUri;
+}
+
+QString AppSettings::exportDirectoryLabel() const
+{
+    return m_exportDirectoryLabel;
+}
+
+bool AppSettings::exportDirectorySelected() const
+{
+    return !m_exportDirectoryUri.isEmpty();
+}
+
+QString AppSettings::exportDirectoryStatus() const
+{
+#ifdef Q_OS_ANDROID
+    if (m_exportDirectoryUri.isEmpty()) {
+        return QStringLiteral("尚未选择导出目录，文件会先保存到应用私有目录");
+    }
+    return QStringLiteral("已选择导出目录：%1；如果权限失效，请重新选择目录")
+        .arg(m_exportDirectoryLabel.isEmpty() ? QStringLiteral("已选择的目录") : m_exportDirectoryLabel);
+#else
+    return QStringLiteral("桌面端直接保存到当前下载目录");
+#endif
+}
+
+void AppSettings::setExportDirectory(const QString &uri, const QString &label)
+{
+    const QString cleanedUri = uri.trimmed();
+    const QString cleanedLabel = label.trimmed().isEmpty()
+        ? QStringLiteral("已选择的目录")
+        : label.trimmed();
+    if (m_exportDirectoryUri == cleanedUri && m_exportDirectoryLabel == cleanedLabel) {
+        return;
+    }
+
+    m_exportDirectoryUri = cleanedUri;
+    m_exportDirectoryLabel = cleanedUri.isEmpty() ? QString() : cleanedLabel;
+    save(QStringLiteral("storage/exportDirectoryUri"), m_exportDirectoryUri);
+    save(QStringLiteral("storage/exportDirectoryLabel"), m_exportDirectoryLabel);
+    emit exportDirectoryChanged();
+}
+
+void AppSettings::clearExportDirectory()
+{
+    if (m_exportDirectoryUri.isEmpty() && m_exportDirectoryLabel.isEmpty()) {
+        return;
+    }
+    m_exportDirectoryUri.clear();
+    m_exportDirectoryLabel.clear();
+    QSettings settings;
+    settings.remove(QStringLiteral("storage/exportDirectoryUri"));
+    settings.remove(QStringLiteral("storage/exportDirectoryLabel"));
+    settings.sync();
+    emit exportDirectoryChanged();
 }
 
 QString AppSettings::ytDlpPath() const
@@ -164,6 +226,7 @@ void AppSettings::reset()
 {
     QSettings settings;
     settings.remove(QStringLiteral("downloadDirectory"));
+    settings.remove(QStringLiteral("storage"));
     settings.remove(QStringLiteral("tools"));
     settings.remove(QStringLiteral("defaultOutputFormat"));
     settings.remove(QStringLiteral("defaultFormatStrategy"));
@@ -172,13 +235,16 @@ void AppSettings::reset()
     settings.sync();
 
     m_downloadDirectory = defaultDownloadDirectory();
+    m_exportDirectoryUri.clear();
+    m_exportDirectoryLabel.clear();
     m_ytDlpPath.clear();
     m_ffmpegPath.clear();
     m_defaultOutputFormat = QStringLiteral("mp4");
     m_defaultFormatStrategy = QStringLiteral("best");
     m_language = QStringLiteral("system");
-    m_theme = QStringLiteral("light");
+    m_theme = defaultTheme();
     emit downloadDirectoryChanged();
+    emit exportDirectoryChanged();
     emit ytDlpPathChanged();
     emit ffmpegPathChanged();
     emit defaultOutputFormatChanged();
@@ -189,8 +255,16 @@ void AppSettings::reset()
 
 QString AppSettings::defaultDownloadDirectory()
 {
-    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    return QDir(downloads).filePath(QStringLiteral("ReClip"));
+    return PlatformPaths::defaultDownloadDirectory();
+}
+
+QString AppSettings::defaultTheme()
+{
+#if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
+    return QStringLiteral("dark");
+#else
+    return QStringLiteral("light");
+#endif
 }
 
 void AppSettings::save(const QString &key, const QString &value)

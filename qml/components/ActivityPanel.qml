@@ -9,16 +9,23 @@ Rectangle {
     property bool compact: false
     signal openQueue()
 
-    Layout.preferredWidth: 320
+    Layout.preferredWidth: 300
     Layout.fillHeight: true
-    color: Theme.surface
-    border.width: 1
-    border.color: Theme.border
+    color: Theme.background
+    border.width: 0
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 1
+        color: Theme.border
+    }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 18
-        spacing: 14
+        anchors.margins: 16
+        spacing: 12
 
         RowLayout {
             Layout.fillWidth: true
@@ -31,8 +38,8 @@ Rectangle {
                     text: "活动"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 18
-                    font.weight: Font.Bold
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
                 }
 
                 Label {
@@ -56,6 +63,7 @@ Rectangle {
             progress: activeProgress()
             state: activeState()
             indeterminate: activeState() === "waiting" || activeState() === "queued"
+                           || activeState() === "interrupted"
             showMarker: false
 
             function activeProgress() {
@@ -77,7 +85,8 @@ Rectangle {
                 }
                 for (var index = 0; index < root.queue.tasks.length; ++index) {
                     var task = root.queue.tasks[index]
-                    if (task.state === "downloading" || task.state === "waiting" || task.state === "queued") {
+                    if (task.state === "downloading" || task.state === "waiting"
+                            || task.state === "queued" || task.state === "interrupted") {
                         return task.state
                     }
                 }
@@ -99,7 +108,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 10
+            spacing: 8
             model: root.queue ? root.queue.tasks : []
 
             delegate: DownloadRow {

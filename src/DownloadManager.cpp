@@ -1,16 +1,33 @@
 #include "DownloadManager.h"
+#include "PlatformPaths.h"
 
 #include <QDir>
 #include <QDesktopServices>
 #include <QFile>
 #include <QFileInfo>
+#include <QStorageInfo>
 #include <QStandardPaths>
+
+namespace {
+
+constexpr qint64 kMinimumDownloadFreeBytes = 16 * 1024 * 1024;
+
+bool hasUsableDownloadStorage(const QString &path)
+{
+    QStorageInfo storage(path);
+    storage.refresh();
+    return storage.isValid()
+        && storage.isReady()
+        && storage.bytesAvailable() >= kMinimumDownloadFreeBytes;
+}
+
+} // namespace
 
 DownloadManager::DownloadManager(QObject *parent)
     : QObject(parent)
+    , m_androidEngine(this)
 {
-    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    m_downloadDirectory = QDir(downloads).filePath(QStringLiteral("ReClip"));
+    m_downloadDirectory = PlatformPaths::defaultDownloadDirectory();
 
     connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
         consumeOutput(m_process.readAllStandardOutput(), m_stdoutBuffer);
@@ -26,11 +43,21 @@ DownloadManager::DownloadManager(QObject *parent)
             [this](QProcess::ProcessError error) {
                 handleProcessError(error);
             });
+    connect(&m_androidEngine,
+            &AndroidDownloadEngine::downloadProgress,
+            this,
+            &DownloadManager::handleAndroidDownloadProgress);
+    connect(&m_androidEngine,
+            &AndroidDownloadEngine::downloadFinished,
+            this,
+            &DownloadManager::handleAndroidDownloadFinished);
 }
 
 bool DownloadManager::busy() const
 {
-    return m_process.state() != QProcess::NotRunning;
+    return m_process.state() != QProcess::NotRunning
+        || !m_androidRequestId.isEmpty()
+        || m_exportBusy;
 }
 
 QString DownloadManager::state() const
@@ -105,6 +132,48 @@ void DownloadManager::setDownloadDirectory(const QString &path)
     emit downloadDirectoryChanged();
 }
 
+QString DownloadManager::exportDirectoryUri() const
+{
+    return m_exportDirectoryUri;
+}
+
+void DownloadManager::setExportDirectoryUri(const QString &uri)
+{
+    const QString cleaned = uri.trimmed();
+    if (m_exportDirectoryUri == cleaned) {
+        return;
+    }
+    m_exportDirectoryUri = cleaned;
+    m_exportedUri.clear();
+    emit exportDirectoryChanged();
+}
+
+QString DownloadManager::exportedUri() const
+{
+    return m_exportedUri;
+}
+
+PlatformStorage *DownloadManager::platformStorage() const
+{
+    return m_platformStorage;
+}
+
+void DownloadManager::setPlatformStorage(PlatformStorage *storage)
+{
+    if (m_platformStorage == storage) {
+        return;
+    }
+    if (m_platformStorage) {
+        disconnect(m_platformStorage, nullptr, this, nullptr);
+    }
+    m_platformStorage = storage;
+    if (m_platformStorage) {
+        connect(m_platformStorage, &PlatformStorage::exportFinished,
+                this, &DownloadManager::handleExportFinished);
+    }
+    emit platformStorageChanged();
+}
+
 QString DownloadManager::ytDlpPath() const
 {
     return m_ytDlpPath;
@@ -151,6 +220,28 @@ void DownloadManager::startDownload(const QString &sourceUrl, const QString &for
         finishFailed(QStringLiteral("请输入有效的 HTTP 或 HTTPS 媒体链接"));
         return;
     }
+#ifdef Q_OS_ANDROID
+    if (m_androidEngine.available()) {
+        QDir directory(m_downloadDirectory);
+        if (!directory.exists() && !directory.mkpath(QStringLiteral("."))) {
+            finishFailed(QStringLiteral("无法创建下载目录：%1").arg(m_downloadDirectory));
+            return;
+        }
+        if (!hasUsableDownloadStorage(m_downloadDirectory)) {
+            finishFailed(QStringLiteral("存储空间不足或下载位置不可用，请清理空间后重试"));
+            return;
+        }
+
+        resetForStart(url.toString(), formatId.trimmed());
+        m_androidRequestId = m_androidEngine.download(
+            m_sourceUrl, m_formatId, m_outputFormat, m_downloadDirectory);
+        if (m_androidRequestId.isEmpty()) {
+            finishFailed(QStringLiteral("无法启动 Android yt-dlp 运行时"));
+        }
+        return;
+    }
+#endif
+
     if (m_ytDlpPath.trimmed().isEmpty() || m_ffmpegPath.trimmed().isEmpty()) {
         finishFailed(QStringLiteral("yt-dlp 或 FFmpeg 不可用，请先完成工具诊断"));
         return;
@@ -159,6 +250,10 @@ void DownloadManager::startDownload(const QString &sourceUrl, const QString &for
     QDir directory(m_downloadDirectory);
     if (!directory.exists() && !directory.mkpath(QStringLiteral("."))) {
         finishFailed(QStringLiteral("无法创建下载目录：%1").arg(m_downloadDirectory));
+        return;
+    }
+    if (!hasUsableDownloadStorage(m_downloadDirectory)) {
+        finishFailed(QStringLiteral("存储空间不足或下载位置不可用，请清理空间后重试"));
         return;
     }
 
@@ -211,6 +306,12 @@ void DownloadManager::cancel()
         return;
     }
     m_cancelRequested = true;
+    if (!m_androidRequestId.isEmpty()) {
+        m_androidEngine.cancel(m_androidRequestId);
+        m_statusText = QStringLiteral("正在取消…");
+        emit stateChanged();
+        return;
+    }
     m_process.terminate();
     m_statusText = QStringLiteral("正在取消…");
     emit stateChanged();
@@ -227,11 +328,40 @@ void DownloadManager::retry()
 void DownloadManager::openOutput()
 {
     const QString path = m_outputPath.isEmpty() ? m_downloadDirectory : m_outputPath;
+    const QString mimeType = m_outputFormat == QStringLiteral("mp3")
+        ? QStringLiteral("audio/mpeg")
+        : QStringLiteral("video/mp4");
+    if (m_platformStorage) {
+        m_platformStorage->openFile(path, m_exportedUri, mimeType);
+        return;
+    }
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+void DownloadManager::shareOutput()
+{
+    if (m_outputPath.isEmpty()) {
+        return;
+    }
+    const QString mimeType = m_outputFormat == QStringLiteral("mp3")
+        ? QStringLiteral("audio/mpeg")
+        : QStringLiteral("video/mp4");
+    if (m_platformStorage) {
+        m_platformStorage->shareFile(m_outputPath, m_exportedUri, mimeType);
+        return;
+    }
 }
 
 void DownloadManager::openDownloadDirectory()
 {
+    if (m_platformStorage && m_platformStorage->androidStorage()) {
+        if (m_exportDirectoryUri.isEmpty()) {
+            m_platformStorage->reportError(QStringLiteral("请先在设置中选择导出目录"));
+        } else {
+            m_platformStorage->openDirectory(m_exportDirectoryUri);
+        }
+        return;
+    }
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_downloadDirectory));
 }
 
@@ -255,11 +385,23 @@ void DownloadManager::handleFinished(int exitCode, QProcess::ExitStatus exitStat
     }
     if (exitStatus == QProcess::NormalExit && exitCode == 0) {
         m_progress = 1.0;
-        m_state = QStringLiteral("completed");
-        m_statusText = QStringLiteral("下载完成");
-        m_errorMessage.clear();
         emit progressChanged();
-        emit stateChanged();
+        if (m_platformStorage && !m_exportDirectoryUri.isEmpty() && !m_outputPath.isEmpty()) {
+            const QString displayName = QFileInfo(m_outputPath).fileName();
+            const QString mimeType = m_outputFormat == QStringLiteral("mp3")
+                ? QStringLiteral("audio/mpeg")
+                : QStringLiteral("video/mp4");
+            m_pendingExportRequest = m_platformStorage->exportFile(
+                m_outputPath, m_exportDirectoryUri, displayName, mimeType);
+            if (!m_pendingExportRequest.isEmpty()) {
+                m_exportBusy = true;
+                m_state = QStringLiteral("exporting");
+                m_statusText = QStringLiteral("正在导出");
+                emit stateChanged();
+                return;
+            }
+        }
+        finishCompleted();
         return;
     }
 
@@ -361,6 +503,110 @@ void DownloadManager::finishCancelled()
     emit stateChanged();
 }
 
+void DownloadManager::handleAndroidDownloadProgress(const QString &requestId,
+                                                     double progress,
+                                                     const QString &eta,
+                                                     const QString &speed,
+                                                     const QString &line)
+{
+    if (requestId != m_androidRequestId) {
+        return;
+    }
+
+    m_progress = progress;
+    m_speed = speed;
+    m_eta = eta;
+    if (!line.isEmpty() && m_speed.isEmpty()) {
+        m_speed = line;
+    }
+    m_state = QStringLiteral("downloading");
+    m_statusText = QStringLiteral("下载中");
+    emit progressChanged();
+    emit stateChanged();
+}
+
+void DownloadManager::handleAndroidDownloadFinished(const QString &requestId,
+                                                     bool success,
+                                                     const QString &outputPath,
+                                                     const QString &errorMessage)
+{
+    if (requestId != m_androidRequestId) {
+        return;
+    }
+
+    m_androidRequestId.clear();
+    if (m_cancelRequested || !success) {
+        if (m_cancelRequested) {
+            finishCancelled();
+        } else {
+            finishFailed(friendlyError(errorMessage));
+        }
+        return;
+    }
+
+    m_outputPath = outputPath;
+    if (m_outputPath.isEmpty()) {
+        finishFailed(QStringLiteral("下载完成但没有找到输出文件"));
+        return;
+    }
+
+    m_progress = 1.0;
+    emit progressChanged();
+    if (m_platformStorage && !m_exportDirectoryUri.isEmpty()) {
+        const QString displayName = QFileInfo(m_outputPath).fileName();
+        const QString mimeType = m_outputFormat == QStringLiteral("mp3")
+            ? QStringLiteral("audio/mpeg")
+            : QStringLiteral("video/mp4");
+        m_pendingExportRequest = m_platformStorage->exportFile(
+            m_outputPath, m_exportDirectoryUri, displayName, mimeType);
+        if (!m_pendingExportRequest.isEmpty()) {
+            m_exportBusy = true;
+            m_state = QStringLiteral("exporting");
+            m_statusText = QStringLiteral("正在导出");
+            emit stateChanged();
+            return;
+        }
+    }
+    finishCompleted();
+}
+
+void DownloadManager::finishCompleted()
+{
+    m_exportBusy = false;
+    m_pendingExportRequest.clear();
+    m_state = QStringLiteral("completed");
+    m_statusText = QStringLiteral("下载完成");
+    m_errorMessage.clear();
+    m_cancelRequested = false;
+    emit stateChanged();
+}
+
+void DownloadManager::handleExportFinished(const QString &requestId,
+                                           bool success,
+                                           const QString &exportedUri,
+                                           const QString &errorMessage)
+{
+    if (requestId != m_pendingExportRequest) {
+        return;
+    }
+
+    m_exportBusy = false;
+    m_pendingExportRequest.clear();
+    if (success) {
+        m_exportedUri = exportedUri;
+        finishCompleted();
+        return;
+    }
+
+    // Keep the private copy usable even when the user revoked the export
+    // permission or the selected provider ran out of space.
+    m_state = QStringLiteral("completed");
+    m_statusText = QStringLiteral("下载完成，但导出失败");
+    m_errorMessage = errorMessage.isEmpty() ? QStringLiteral("文件导出失败") : errorMessage;
+    m_cancelRequested = false;
+    emit stateChanged();
+}
+
 void DownloadManager::resetForStart(const QString &sourceUrl, const QString &formatId)
 {
     m_sourceUrl = sourceUrl;
@@ -370,6 +616,9 @@ void DownloadManager::resetForStart(const QString &sourceUrl, const QString &for
     m_speed.clear();
     m_eta.clear();
     m_outputPath.clear();
+    m_exportedUri.clear();
+    m_pendingExportRequest.clear();
+    m_exportBusy = false;
     m_errorMessage.clear();
     m_progress = 0.0;
     m_state = QStringLiteral("downloading");
@@ -393,6 +642,25 @@ QString DownloadManager::friendlyError(const QString &rawMessage)
 {
     const QString message = rawMessage.trimmed();
     const QString lower = message.toLower();
+    if (lower.contains(QStringLiteral("no space left on device"))
+        || lower.contains(QStringLiteral("not enough space"))
+        || lower.contains(QStringLiteral("disk full"))
+        || lower.contains(QStringLiteral("insufficient storage"))
+        || lower.contains(QStringLiteral("errno 28"))) {
+        return QStringLiteral("存储空间不足，请清理空间后重试");
+    }
+    if (lower.contains(QStringLiteral("connection refused"))
+        || lower.contains(QStringLiteral("connection reset"))
+        || lower.contains(QStringLiteral("connection aborted"))
+        || lower.contains(QStringLiteral("software caused connection abort"))
+        || lower.contains(QStringLiteral("errno 103"))
+        || lower.contains(QStringLiteral("remote end closed"))
+        || lower.contains(QStringLiteral("network is unreachable"))
+        || lower.contains(QStringLiteral("could not resolve host"))
+        || lower.contains(QStringLiteral("name or service not known"))
+        || lower.contains(QStringLiteral("temporary failure in name resolution"))) {
+        return QStringLiteral("网络连接中断，请检查网络后重试");
+    }
     if (lower.contains(QStringLiteral("unsupported url"))) {
         return QStringLiteral("该链接格式不受支持");
     }

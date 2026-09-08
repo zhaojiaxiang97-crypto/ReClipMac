@@ -15,7 +15,7 @@ Rectangle {
     radius: height / 2
     color: Theme.stateSurface(state)
     border.width: 1
-    border.color: Qt.rgba(stateColor.r, stateColor.g, stateColor.b, 0.34)
+    border.color: Qt.rgba(stateColor.r, stateColor.g, stateColor.b, 0.26)
 
     Row {
         id: content
@@ -35,7 +35,7 @@ Rectangle {
             color: root.stateColor
             font.family: Theme.fontFamily
             font.pixelSize: compact ? 11 : 12
-            font.weight: Font.DemiBold
+            font.weight: Font.Medium
             anchors.verticalCenter: parent.verticalCenter
         }
     }

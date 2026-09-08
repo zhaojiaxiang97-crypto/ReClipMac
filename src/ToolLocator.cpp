@@ -1,13 +1,16 @@
 #include "ToolLocator.h"
+#include "PlatformPaths.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QProcessEnvironment>
 #include <QSettings>
 #include <QStandardPaths>
 
 ToolLocator::ToolLocator(QObject *parent)
     : QObject(parent)
+    , m_androidEngine(this)
 {
     connect(&m_process, &QProcess::finished, this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
@@ -45,7 +48,9 @@ ToolLocator::ToolLocator(QObject *parent)
                     message = QStringLiteral("工具响应超时");
                     break;
                 case QProcess::Crashed:
-                    message = QStringLiteral("工具启动后异常退出");
+                    message = QStringLiteral("工具启动后异常退出（%1，退出码 %2）")
+                                  .arg(m_process.errorString())
+                                  .arg(m_process.exitCode());
                     break;
                 default:
                     message = QStringLiteral("工具检测失败：%1").arg(m_process.errorString());
@@ -57,6 +62,11 @@ ToolLocator::ToolLocator(QObject *parent)
 
 bool ToolLocator::ready() const
 {
+#ifdef Q_OS_ANDROID
+    if (m_androidEngine.available()) {
+        return m_ytDlp.available && m_ffmpeg.available;
+    }
+#endif
     return m_ytDlp.available && m_ffmpeg.available && m_ffprobe.available;
 }
 
@@ -231,12 +241,57 @@ QString ToolLocator::configuredPath(const QString &toolName) const
     return settings.value(QStringLiteral("tools/%1Path").arg(normalizeToolName(toolName))).toString().trimmed();
 }
 
+namespace {
+
+QStringList packagedExecutableNames(const QString &executableName)
+{
+    QStringList names;
+#ifdef Q_OS_WIN
+    if (!executableName.endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive)) {
+        names.append(executableName + QStringLiteral(".exe"));
+    }
+#endif
+    names.append(executableName);
+    return names;
+}
+
+} // namespace
+
 void ToolLocator::prepareState(const QString &toolName)
 {
     ToolState &state = stateFor(toolName);
     state.customPath = configuredPath(toolName);
     state.version.clear();
     state.available = false;
+
+#ifdef Q_OS_ANDROID
+    if (normalizeToolName(toolName) == QStringLiteral("yt-dlp")
+        && m_androidEngine.available()) {
+        state.path.clear();
+        state.version = QStringLiteral("yt-dlp-android 2.0.2");
+        state.available = true;
+        state.message = QStringLiteral("Android 内置运行时已就绪");
+        return;
+    }
+
+    if (normalizeToolName(toolName) == QStringLiteral("ffmpeg")
+        && m_androidEngine.ffmpegKitAvailable()) {
+        state.path.clear();
+        state.version = QStringLiteral("FFmpegKit 8.1.7");
+        state.available = true;
+        state.message = QStringLiteral("Android 内置 FFmpegKit 运行时已就绪");
+        return;
+    }
+
+    if (normalizeToolName(toolName) == QStringLiteral("ffprobe")
+        && m_androidEngine.ffmpegKitAvailable()) {
+        state.path.clear();
+        state.version = QStringLiteral("FFprobeKit 8.1.7");
+        state.available = true;
+        state.message = QStringLiteral("Android 内置 FFprobeKit 运行时已就绪");
+        return;
+    }
+#endif
 
     if (!state.customPath.isEmpty()) {
         const QFileInfo configuredFile(state.customPath);
@@ -253,27 +308,38 @@ void ToolLocator::prepareState(const QString &toolName)
 
     const QString executableName = normalizeToolName(toolName);
     const QString applicationDirectory = QCoreApplication::applicationDirPath();
-    const QStringList packagedCandidates {
-        QDir(applicationDirectory).filePath(QStringLiteral("bin/%1").arg(executableName)),
-        QDir(applicationDirectory).filePath(QStringLiteral("../Resources/bin/%1").arg(executableName)),
-        QDir(applicationDirectory).filePath(executableName),
-        QDir(applicationDirectory).filePath(QStringLiteral("../Resources/%1").arg(executableName))
+    const QStringList packagedDirectories {
+        PlatformPaths::runtimeDirectory(),
+        QDir(PlatformPaths::cacheDirectory()).filePath(QStringLiteral("bin")),
+        QDir(applicationDirectory).filePath(QStringLiteral("bin")),
+        QDir(applicationDirectory).filePath(QStringLiteral("../Resources/bin")),
+        applicationDirectory,
+        QDir(applicationDirectory).filePath(QStringLiteral("../Resources"))
     };
-    for (const QString &candidate : packagedCandidates) {
-        const QFileInfo packagedFile(candidate);
-        if (packagedFile.exists() && packagedFile.isFile() && packagedFile.isExecutable()) {
-            state.path = packagedFile.absoluteFilePath();
-            state.message = QStringLiteral("检测中…");
-            return;
+    const QStringList packagedNames = packagedExecutableNames(executableName);
+    for (const QString &directory : packagedDirectories) {
+        for (const QString &name : packagedNames) {
+            const QFileInfo packagedFile(QDir(directory).filePath(name));
+            if (packagedFile.exists() && packagedFile.isFile() && packagedFile.isExecutable()) {
+                state.path = packagedFile.absoluteFilePath();
+                state.message = QStringLiteral("检测中…");
+                return;
+            }
         }
     }
 
+#ifdef Q_OS_ANDROID
+    state.path.clear();
+    state.message = QStringLiteral("未找到 Android 运行时，请将工具放入 %1 或设置自定义路径")
+        .arg(PlatformPaths::runtimeDirectory());
+#else
     state.path = QStandardPaths::findExecutable(executableName);
     if (state.path.isEmpty()) {
         state.message = QStringLiteral("未在系统 PATH 中找到，请安装工具或指定路径");
     } else {
         state.message = QStringLiteral("检测中…");
     }
+#endif
 }
 
 void ToolLocator::detectNext()
@@ -292,6 +358,19 @@ void ToolLocator::detectNext()
             ? QStringLiteral("--version")
             : QStringLiteral("-version");
         m_process.setArguments({versionArgument});
+        const QFileInfo executableFile(state.path);
+        if (executableFile.exists() && executableFile.isFile()) {
+            const QString toolDirectory = executableFile.absolutePath();
+            m_process.setWorkingDirectory(toolDirectory);
+
+            QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+            const QString systemPath = environment.value(QStringLiteral("PATH"));
+            const QString pathPrefix = toolDirectory + QDir::listSeparator();
+            if (!systemPath.startsWith(pathPrefix, Qt::CaseInsensitive)) {
+                environment.insert(QStringLiteral("PATH"), pathPrefix + systemPath);
+            }
+            m_process.setProcessEnvironment(environment);
+        }
         m_process.setProcessChannelMode(QProcess::MergedChannels);
         m_process.start();
         return;

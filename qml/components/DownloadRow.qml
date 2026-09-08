@@ -11,6 +11,7 @@ Item {
     signal cancelClicked(string taskId)
     signal retryClicked(string taskId)
     signal openClicked(string taskId)
+    signal shareClicked(string taskId)
     signal removeClicked(string taskId)
 
     readonly property string taskId: task && task.id ? task.id : ""
@@ -22,7 +23,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusControl
+        radius: Theme.radiusPanel
         color: root.taskState === "downloading" ? Theme.surface : Theme.background
         border.width: 1
         border.color: root.taskState === "downloading"
@@ -48,7 +49,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    text: root.taskState === "completed" ? "✓" : (root.taskState === "failed" ? "!" : "•")
+                    text: root.taskState === "completed" ? "✓" : (root.taskState === "failed" ? "!" : (root.taskState === "interrupted" ? "↻" : "•"))
                     color: root.taskColor
                     font.family: Theme.fontFamily
                     font.pixelSize: compact ? 13 : 15
@@ -118,7 +119,7 @@ Item {
                     }
                     return details.join("  ·  ")
                 }
-                color: root.taskState === "failed" ? Theme.coral : Theme.muted
+                    color: root.taskState === "failed" || root.taskState === "interrupted" ? Theme.danger : Theme.muted
                 font.family: Theme.monoFamily
                 font.pixelSize: compact ? 11 : 12
                 elide: Text.ElideMiddle
@@ -150,6 +151,15 @@ Item {
             }
 
             AppButton {
+                visible: root.taskState === "completed" && Qt.platform.os === "android"
+                text: "分享"
+                iconText: "↑"
+                variant: "secondary"
+                compact: true
+                onClicked: root.shareClicked(root.taskId)
+            }
+
+            AppButton {
                 visible: !compact
                 text: "删除"
                 variant: "ghost"
@@ -159,10 +169,10 @@ Item {
         }
 
         Label {
-            visible: root.taskState === "failed" && task.errorMessage
+            visible: (root.taskState === "failed" || root.taskState === "interrupted") && task.errorMessage
             Layout.fillWidth: true
             text: task.errorMessage || "下载未完成"
-            color: Theme.coral
+            color: Theme.danger
             font.family: Theme.fontFamily
             font.pixelSize: 12
             wrapMode: Text.Wrap

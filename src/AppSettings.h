@@ -11,6 +11,10 @@ class AppSettings : public QObject
     Q_PROPERTY(QString downloadDirectory READ downloadDirectory WRITE setDownloadDirectory NOTIFY downloadDirectoryChanged)
     Q_PROPERTY(bool downloadDirectoryValid READ downloadDirectoryValid NOTIFY downloadDirectoryChanged)
     Q_PROPERTY(QString downloadDirectoryStatus READ downloadDirectoryStatus NOTIFY downloadDirectoryChanged)
+    Q_PROPERTY(QString exportDirectoryUri READ exportDirectoryUri NOTIFY exportDirectoryChanged)
+    Q_PROPERTY(QString exportDirectoryLabel READ exportDirectoryLabel NOTIFY exportDirectoryChanged)
+    Q_PROPERTY(bool exportDirectorySelected READ exportDirectorySelected NOTIFY exportDirectoryChanged)
+    Q_PROPERTY(QString exportDirectoryStatus READ exportDirectoryStatus NOTIFY exportDirectoryChanged)
     Q_PROPERTY(QString ytDlpPath READ ytDlpPath WRITE setYtDlpPath NOTIFY ytDlpPathChanged)
     Q_PROPERTY(QString ffmpegPath READ ffmpegPath WRITE setFfmpegPath NOTIFY ffmpegPathChanged)
     Q_PROPERTY(QString defaultOutputFormat READ defaultOutputFormat WRITE setDefaultOutputFormat NOTIFY defaultOutputFormatChanged)
@@ -25,6 +29,12 @@ public:
     void setDownloadDirectory(const QString &path);
     bool downloadDirectoryValid() const;
     QString downloadDirectoryStatus() const;
+    QString exportDirectoryUri() const;
+    QString exportDirectoryLabel() const;
+    bool exportDirectorySelected() const;
+    QString exportDirectoryStatus() const;
+    Q_INVOKABLE void setExportDirectory(const QString &uri, const QString &label);
+    Q_INVOKABLE void clearExportDirectory();
     QString ytDlpPath() const;
     void setYtDlpPath(const QString &path);
     QString ffmpegPath() const;
@@ -42,6 +52,7 @@ public:
 
 signals:
     void downloadDirectoryChanged();
+    void exportDirectoryChanged();
     void ytDlpPathChanged();
     void ffmpegPathChanged();
     void defaultOutputFormatChanged();
@@ -51,13 +62,16 @@ signals:
 
 private:
     static QString defaultDownloadDirectory();
+    static QString defaultTheme();
     void save(const QString &key, const QString &value);
 
     QString m_downloadDirectory;
+    QString m_exportDirectoryUri;
+    QString m_exportDirectoryLabel;
     QString m_ytDlpPath;
     QString m_ffmpegPath;
     QString m_defaultOutputFormat = QStringLiteral("mp4");
     QString m_defaultFormatStrategy = QStringLiteral("best");
     QString m_language = QStringLiteral("system");
-    QString m_theme = QStringLiteral("light");
+    QString m_theme;
 };

@@ -110,11 +110,11 @@ if ($ffmpegLicense) {
 }
 
 $manifest = [ordered]@{
-    application = 'ReClip'
+    application = 'Video Downloader'
     configuration = $Configuration
     qtRoot = $qtRoot
-    ytDlp = (Join-Path $runtimeDirectory 'yt-dlp.exe')
-    ffmpeg = (Join-Path $runtimeDirectory 'ffmpeg.exe')
+    ytDlp = 'bin/yt-dlp.exe'
+    ffmpeg = 'bin/ffmpeg.exe'
     generatedAt = (Get-Date).ToUniversalTime().ToString('o')
 }
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageDirectory 'runtime-manifest.json') -Encoding utf8

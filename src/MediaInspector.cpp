@@ -10,6 +10,7 @@
 
 MediaInspector::MediaInspector(QObject *parent)
     : QObject(parent)
+    , m_androidEngine(this)
 {
     m_timeout.setSingleShot(true);
     m_timeout.setInterval(35000);
@@ -28,6 +29,10 @@ MediaInspector::MediaInspector(QObject *parent)
             [this](QProcess::ProcessError error) {
                 handleProcessError(error);
             });
+    connect(&m_androidEngine,
+            &AndroidDownloadEngine::inspectionFinished,
+            this,
+            &MediaInspector::handleAndroidInspectionFinished);
     connect(&m_timeout, &QTimer::timeout, this, [this] {
         if (!m_inspecting) {
             return;
@@ -36,6 +41,9 @@ MediaInspector::MediaInspector(QObject *parent)
         m_inspecting = false;
         if (m_process.state() != QProcess::NotRunning) {
             m_process.kill();
+        }
+        if (!m_androidRequestId.isEmpty()) {
+            m_androidEngine.cancel(m_androidRequestId);
         }
         finishWithError(QStringLiteral("timeout"), QStringLiteral("解析超时，请检查网络后重试"));
     });
@@ -136,6 +144,10 @@ void MediaInspector::inspect(const QString &url)
         m_process.kill();
         m_process.waitForFinished(500);
     }
+    if (!m_androidRequestId.isEmpty()) {
+        m_androidEngine.cancel(m_androidRequestId);
+        m_androidRequestId.clear();
+    }
 
     m_timeout.stop();
     m_standardOutput.clear();
@@ -152,6 +164,23 @@ void MediaInspector::inspect(const QString &url)
         finishWithError(QStringLiteral("invalid-url"), QStringLiteral("请输入有效的 HTTP 或 HTTPS 媒体链接"));
         return;
     }
+
+#ifdef Q_OS_ANDROID
+    if (m_androidEngine.available()) {
+        m_state = QStringLiteral("inspecting");
+        m_inspecting = true;
+        emit stateChanged();
+
+        m_androidRequestId = m_androidEngine.inspect(m_sourceUrl);
+        if (m_androidRequestId.isEmpty()) {
+            finishWithError(QStringLiteral("tool-error"),
+                            QStringLiteral("无法启动 Android yt-dlp 运行时"));
+            return;
+        }
+        m_timeout.start();
+        return;
+    }
+#endif
 
     if (m_ytDlpPath.trimmed().isEmpty()) {
         finishWithError(QStringLiteral("tool-missing"), QStringLiteral("yt-dlp 不可用，请先在工具诊断中完成配置"));
@@ -183,6 +212,10 @@ void MediaInspector::clear()
         m_inspecting = false;
         m_process.kill();
         m_process.waitForFinished(500);
+    }
+    if (!m_androidRequestId.isEmpty()) {
+        m_androidEngine.cancel(m_androidRequestId);
+        m_androidRequestId.clear();
     }
     m_timeout.stop();
     m_sourceUrl.clear();
@@ -225,6 +258,26 @@ void MediaInspector::handleProcessError(QProcess::ProcessError error)
     } else {
         finishWithError(QStringLiteral("tool-error"), QStringLiteral("yt-dlp 进程错误：%1").arg(m_process.errorString()));
     }
+}
+
+void MediaInspector::handleAndroidInspectionFinished(const QString &requestId,
+                                                      bool success,
+                                                      const QByteArray &payload,
+                                                      const QString &errorMessage)
+{
+    if (!m_inspecting || requestId != m_androidRequestId) {
+        return;
+    }
+
+    m_androidRequestId.clear();
+    m_timeout.stop();
+    if (!success) {
+        const QStringList classification = classifyError(errorMessage);
+        finishWithError(classification.value(0), classification.value(1));
+        return;
+    }
+
+    parseMetadata(payload);
 }
 
 void MediaInspector::finishWithError(const QString &code, const QString &message)

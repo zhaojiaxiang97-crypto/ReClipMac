@@ -12,7 +12,7 @@ Rectangle {
     signal actionTriggered()
 
     implicitHeight: content.implicitHeight + 24
-    radius: Theme.radiusControl
+    radius: Theme.radiusPanel
     color: tone === "danger" ? Theme.dangerSurface : (tone === "success" ? Theme.signalSurface : Theme.warningSurface)
     border.width: 1
     border.color: tone === "danger" ? Theme.dangerBorder : (tone === "success" ? Theme.successBorder : Theme.warningBorder)

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(ReClipQt VERSION 0.1.0 LANGUAGES CXX)
+project(VideoDownloader VERSION 0.1.0 LANGUAGES CXX)
 
 if(APPLE)
     set(RECLIP_MACOS_DEPLOYMENT_TARGET "14.0" CACHE STRING
-        "Minimum macOS version supported by ReClip")
+        "Minimum macOS version supported by Video Downloader")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "${RECLIP_MACOS_DEPLOYMENT_TARGET}"
-        CACHE STRING "Minimum macOS version supported by ReClip" FORCE)
+        CACHE STRING "Minimum macOS version supported by Video Downloader" FORCE)
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/Info.plist.in"
         "${CMAKE_CURRENT_BINARY_DIR}/ReClipInfo.plist"
@@ -109,6 +109,7 @@ set(RECLIP_QML_FILES
     qml/components/DownloadRow.qml
     qml/components/DownloadStatusPanel.qml
     qml/components/InlineNotice.qml
+    qml/components/IconGlyph.qml
     qml/components/LinkCapture.qml
     qml/components/MediaPreview.qml
     qml/components/MobileBottomBar.qml
@@ -123,7 +124,12 @@ set(RECLIP_QML_FILES
 )
 
 if(RECLIP_HAS_KIRIGAMI)
-    list(APPEND RECLIP_QML_FILES qml/MainKirigami.qml)
+    list(APPEND RECLIP_QML_FILES
+        qml/MainKirigami.qml
+        qml/kirigami/KirigamiNewDownloadPage.qml
+        qml/kirigami/KirigamiQueuePage.qml
+        qml/kirigami/KirigamiSettingsPage.qml
+    )
 endif()
 
 qt_add_qml_module(${RECLIP_APP_TARGET}
@@ -133,6 +139,10 @@ qt_add_qml_module(${RECLIP_APP_TARGET}
     SOURCES
         src/AppController.h
         src/AppController.cpp
+        src/AndroidDownloadEngine.h
+        src/AndroidDownloadEngine.cpp
+        src/PlatformPaths.h
+        src/PlatformPaths.cpp
         src/ToolLocator.h
         src/ToolLocator.cpp
         src/MediaInspector.h
@@ -143,12 +153,14 @@ qt_add_qml_module(${RECLIP_APP_TARGET}
         src/DownloadQueue.cpp
         src/AppSettings.h
         src/AppSettings.cpp
-)
+        src/PlatformStorage.h
+        src/PlatformStorage.cpp
+    )
 
 set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
     OUTPUT_NAME ReClip
     MACOSX_BUNDLE TRUE
-    MACOSX_BUNDLE_BUNDLE_NAME "ReClip"
+    MACOSX_BUNDLE_BUNDLE_NAME "Video Downloader"
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.reclip.app"
     MACOSX_BUNDLE_ICON_FILE "ReClip.icns"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
@@ -159,6 +171,25 @@ set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
 if(APPLE)
     set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/ReClipInfo.plist"
+    )
+endif()
+
+if(ANDROID)
+    # Keep the Android identity stable while the internal Qt/QML URI remains
+    # ReClip for desktop compatibility.
+    set(RECLIP_ANDROID_PACKAGE_SOURCE_DIR
+        "${CMAKE_CURRENT_SOURCE_DIR}/android"
+        CACHE PATH
+        "Android package source directory, optionally staged with runtime AARs"
+    )
+    set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${RECLIP_ANDROID_PACKAGE_SOURCE_DIR}"
+        QT_ANDROID_PACKAGE_NAME "com.reclip.videodownloader"
+        QT_ANDROID_APP_NAME "Video Downloader"
+        QT_ANDROID_MIN_SDK_VERSION 28
+        QT_ANDROID_TARGET_SDK_VERSION 35
+        QT_ANDROID_VERSION_CODE 1
+        QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}"
     )
 endif()
 
@@ -198,6 +229,8 @@ endif()
 include(GNUInstallDirs)
 install(TARGETS ${RECLIP_APP_TARGET}
     RUNTIME DESTINATION .
+    LIBRARY DESTINATION .
+    ARCHIVE DESTINATION .
     BUNDLE DESTINATION .
 )
 
@@ -213,8 +246,12 @@ if(BUILD_TESTING)
 
     qt_add_executable(ReClipToolLocatorTest
         tests/tool_locator.cpp
+        src/AndroidDownloadEngine.h
+        src/AndroidDownloadEngine.cpp
         src/ToolLocator.h
         src/ToolLocator.cpp
+        src/PlatformPaths.h
+        src/PlatformPaths.cpp
     )
 
     target_include_directories(ReClipToolLocatorTest PRIVATE
@@ -225,6 +262,8 @@ if(BUILD_TESTING)
 
     qt_add_executable(ReClipMediaInspectorTest
         tests/media_inspector.cpp
+        src/AndroidDownloadEngine.h
+        src/AndroidDownloadEngine.cpp
         src/MediaInspector.h
         src/MediaInspector.cpp
     )
@@ -237,8 +276,14 @@ if(BUILD_TESTING)
 
     qt_add_executable(ReClipDownloadManagerTest
         tests/download_manager.cpp
+        src/AndroidDownloadEngine.h
+        src/AndroidDownloadEngine.cpp
         src/DownloadManager.h
         src/DownloadManager.cpp
+        src/PlatformPaths.h
+        src/PlatformPaths.cpp
+        src/PlatformStorage.h
+        src/PlatformStorage.cpp
     )
 
     target_include_directories(ReClipDownloadManagerTest PRIVATE
@@ -249,8 +294,14 @@ if(BUILD_TESTING)
 
     qt_add_executable(ReClipDownloadQueueTest
         tests/download_queue.cpp
+        src/AndroidDownloadEngine.h
+        src/AndroidDownloadEngine.cpp
         src/DownloadQueue.h
         src/DownloadQueue.cpp
+        src/PlatformPaths.h
+        src/PlatformPaths.cpp
+        src/PlatformStorage.h
+        src/PlatformStorage.cpp
     )
 
     target_include_directories(ReClipDownloadQueueTest PRIVATE
@@ -263,6 +314,8 @@ if(BUILD_TESTING)
         tests/app_settings.cpp
         src/AppSettings.h
         src/AppSettings.cpp
+        src/PlatformPaths.h
+        src/PlatformPaths.cpp
     )
 
     target_include_directories(ReClipAppSettingsTest PRIVATE

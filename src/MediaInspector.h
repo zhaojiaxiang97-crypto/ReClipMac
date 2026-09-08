@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
 
+#include "AndroidDownloadEngine.h"
+
 class MediaInspector : public QObject
 {
     Q_OBJECT
@@ -65,6 +67,10 @@ private:
 
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+    void handleAndroidInspectionFinished(const QString &requestId,
+                                         bool success,
+                                         const QByteArray &payload,
+                                         const QString &errorMessage);
     void finishWithError(const QString &code, const QString &message);
     void resetResult();
     void parseMetadata(const QByteArray &output);
@@ -72,6 +78,7 @@ private:
     static QString formatDuration(double seconds);
 
     QProcess m_process;
+    AndroidDownloadEngine m_androidEngine;
     QTimer m_timeout;
     QByteArray m_standardOutput;
     QByteArray m_standardError;
@@ -87,6 +94,7 @@ private:
     QVariantList m_formats;
     QStringList m_formatLabels;
     QString m_selectedFormatId;
+    QString m_androidRequestId;
     bool m_inspecting = false;
     bool m_hasResult = false;
 };

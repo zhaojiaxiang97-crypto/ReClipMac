@@ -26,13 +26,17 @@ int main(int argc, char *argv[])
     settings.setDefaultFormatStrategy(QStringLiteral("compatible"));
     settings.setLanguage(QStringLiteral("en"));
     settings.setTheme(QStringLiteral("dark"));
+    settings.setExportDirectory(QStringLiteral("content://com.android.externalstorage.documents/tree/primary%3ADownload"),
+                                QStringLiteral("Download"));
 
     if (settings.downloadDirectory() != QDir::cleanPath(configuredDirectory)
         || settings.downloadDirectoryValid()
         || settings.defaultOutputFormat() != QStringLiteral("mp3")
         || settings.defaultFormatStrategy() != QStringLiteral("compatible")
         || settings.language() != QStringLiteral("en")
-        || settings.theme() != QStringLiteral("dark")) {
+        || settings.theme() != QStringLiteral("dark")
+        || !settings.exportDirectorySelected()
+        || settings.exportDirectoryLabel() != QStringLiteral("Download")) {
         cleanup.clear();
         return 1;
     }
@@ -42,7 +46,9 @@ int main(int argc, char *argv[])
         || restored.ytDlpPath().isEmpty() || restored.ffmpegPath().isEmpty()
         || restored.defaultOutputFormat() != QStringLiteral("mp3")
         || restored.language() != QStringLiteral("en")
-        || restored.theme() != QStringLiteral("dark")) {
+        || restored.theme() != QStringLiteral("dark")
+        || restored.exportDirectoryUri().isEmpty()
+        || restored.exportDirectoryLabel() != QStringLiteral("Download")) {
         cleanup.clear();
         return 2;
     }
@@ -52,7 +58,8 @@ int main(int argc, char *argv[])
         && restored.defaultFormatStrategy() == QStringLiteral("best")
         && restored.language() == QStringLiteral("system")
         && restored.theme() == QStringLiteral("light")
-        && restored.ytDlpPath().isEmpty() && restored.ffmpegPath().isEmpty();
+        && restored.ytDlpPath().isEmpty() && restored.ffmpegPath().isEmpty()
+        && !restored.exportDirectorySelected();
     cleanup.clear();
     return resetOk ? 0 : 3;
 }

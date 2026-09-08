@@ -16,21 +16,32 @@ Item {
     signal pathSubmitted(string path)
     signal clearRequested()
 
-    implicitHeight: content.implicitHeight + 28
+    readonly property bool compact: width < 700
+
+    implicitHeight: content.implicitHeight + (compact ? 20 : 28)
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusControl
-        color: Theme.surface
-        border.width: 1
+        radius: root.compact ? 0 : Theme.radiusPanel
+        color: root.compact ? "transparent" : Theme.surface
+        border.width: root.compact ? 0 : 1
         border.color: root.available ? Theme.successBorder : Theme.border
+
+        Rectangle {
+            visible: root.compact
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Theme.border
+        }
     }
 
     ColumnLayout {
         id: content
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 9
+        anchors.margins: root.compact ? 0 : 14
+        spacing: root.compact ? 8 : 9
 
         RowLayout {
             Layout.fillWidth: true
@@ -76,7 +87,9 @@ Item {
 
             Label {
                 Layout.fillWidth: true
-                text: root.path.length > 0 ? "路径  " + root.path : "路径  未找到"
+                text: root.path.length > 0
+                      ? "路径  " + root.path
+                      : (root.available ? "来源  Android 内置运行时" : "路径  未找到")
                 color: Theme.muted
                 font.family: Theme.monoFamily
                 font.pixelSize: 11

@@ -43,7 +43,7 @@ Item {
         width: Math.max(36, parent.width * 0.24)
         height: 3
         radius: 2
-        color: Theme.violet
+        color: Theme.accent
         y: (parent.height - height) / 2
 
         SequentialAnimation on x {

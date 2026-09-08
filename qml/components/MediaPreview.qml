@@ -17,7 +17,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.radiusInput
+        radius: Theme.radiusPanel
         color: Theme.surface
         border.width: 1
         border.color: Theme.successBorder
@@ -31,6 +31,23 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 10
+
+            Rectangle {
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                radius: Theme.radiusSmall
+                color: Theme.signalSurface
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "✓"
+                    color: Theme.signal
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                }
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -40,7 +57,7 @@ Item {
                     text: "媒体已准备好"
                     color: Theme.signal
                     font.family: Theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: 15
                     font.weight: Font.DemiBold
                 }
 
@@ -158,8 +175,8 @@ Item {
             text: details.inspector ? details.inspector.title : ""
             color: Theme.text
             font.family: Theme.fontFamily
-            font.pixelSize: details.compact ? 19 : 20
-            font.weight: Font.Bold
+            font.pixelSize: details.compact ? 18 : 19
+            font.weight: Font.DemiBold
             wrapMode: Text.Wrap
             maximumLineCount: 3
             elide: Text.ElideRight
@@ -208,9 +225,9 @@ Item {
 
             background: Rectangle {
                 radius: Theme.radiusControl
-                color: Theme.background
+                color: Theme.surfaceAlt
                 border.width: formatCombo.visualFocus ? 2 : 1
-                border.color: formatCombo.visualFocus ? Theme.violet : Theme.border
+                border.color: formatCombo.visualFocus ? Theme.accent : Theme.border
             }
 
             onActivated: function (index) {
@@ -242,9 +259,9 @@ Item {
 
             background: Rectangle {
                 radius: Theme.radiusControl
-                color: Theme.background
+                color: Theme.surfaceAlt
                 border.width: qualityCombo.visualFocus ? 2 : 1
-                border.color: qualityCombo.visualFocus ? Theme.violet : Theme.border
+                border.color: qualityCombo.visualFocus ? Theme.accent : Theme.border
             }
 
             onActivated: function (index) {
