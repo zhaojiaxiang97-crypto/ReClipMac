@@ -13,8 +13,10 @@ QtObject {
     // Keep Chinese UI text on a native system face. Qt will fall back to the
     // next suitable glyph source when a platform does not ship the preferred
     // family, which is more reliable than forcing a web-font-like stack.
-    readonly property string fontFamily: Qt.platform.os === "windows" ? "Microsoft YaHei UI"
-        : (Qt.platform.os === "osx" ? "PingFang SC"
+// SF Pro Text keeps Latin UI copy visually aligned with native macOS controls;
+// CoreText falls back to PingFang SC for Chinese glyphs.
+readonly property string fontFamily: Qt.platform.os === "windows" ? "Microsoft YaHei UI"
+    : (Qt.platform.os === "osx" ? "SF Pro Text"
         : (Qt.platform.os === "android" ? "Noto Sans CJK SC" : "Noto Sans"))
     readonly property string monoFamily: Qt.platform.os === "windows" ? "Cascadia Mono"
         : (Qt.platform.os === "android" ? "monospace" : "SF Mono")
@@ -36,16 +38,16 @@ QtObject {
 
     // Desktop light palette. Blue is the primary interaction cue; green is
     // deliberately reserved for healthy tool and task states.
-    readonly property color primaryBlue: "#1677FF"
-    readonly property color primaryBlueHover: "#0958D9"
-    readonly property color primaryBlueSoft: "#E7F1FF"
-    readonly property color desktopCanvas: "#F3F4F6"
-    readonly property color desktopSidebar: "#F0F2F5"
-    readonly property color desktopSurfaceAlt: "#F8FAFC"
-    readonly property color desktopSelection: "#DCEBFC"
-    readonly property color desktopBorder: "#E6E8EB"
-    readonly property color desktopText: "#182230"
-    readonly property color desktopMuted: "#667085"
+    readonly property color primaryBlue: "#4568E8"
+    readonly property color primaryBlueHover: "#3555CB"
+    readonly property color primaryBlueSoft: "#E9EEFF"
+    readonly property color desktopCanvas: "#F6F8FC"
+    readonly property color desktopSidebar: "#FFFFFF"
+    readonly property color desktopSurfaceAlt: "#F3F6FB"
+    readonly property color desktopSelection: "#E8EEFF"
+    readonly property color desktopBorder: "#E4E9F1"
+    readonly property color desktopText: "#172033"
+    readonly property color desktopMuted: "#657089"
     readonly property color desktopSubtle: "#98A2B3"
 
     // Kept as named compatibility colors for components and documentation
@@ -70,7 +72,7 @@ QtObject {
     readonly property color background: darkMode ? graphite : desktopCanvas
     readonly property color surface: darkMode ? surfaceDark : "#FFFFFF"
     readonly property color surfaceAlt: darkMode ? surfaceAltDark : desktopSurfaceAlt
-    readonly property color surfaceRaised: darkMode ? surfaceRaisedDark : primaryBlueSoft
+    readonly property color surfaceRaised: darkMode ? surfaceRaisedDark : "#FFFFFF"
     readonly property color selectionSurface: darkMode ? surfaceRaisedDark : desktopSelection
     readonly property color sidebarBackground: darkMode ? graphite : desktopSidebar
     readonly property color text: darkMode ? textDark : desktopText
@@ -93,18 +95,18 @@ QtObject {
     readonly property color violetSurface: darkMode ? "#342D2F" : primaryBlueSoft
     readonly property color signalSurface: darkMode ? "#263522" : "#E9F7EF"
 
-    readonly property int radiusAction: darkMode ? radiusPill : 6
-    readonly property int radiusInput: darkMode ? 16 : 6
-    readonly property int radiusControl: darkMode ? 12 : 6
-    readonly property int radiusPanel: darkMode ? 20 : 9
-    readonly property int radiusSmall: darkMode ? 8 : 5
+    readonly property int radiusAction: darkMode ? radiusPill : 10
+    readonly property int radiusInput: darkMode ? 16 : 12
+    readonly property int radiusControl: darkMode ? 12 : 10
+    readonly property int radiusPanel: darkMode ? 20 : 16
+    readonly property int radiusSmall: darkMode ? 8 : 8
     readonly property int radiusPill: 999
-    readonly property int radiusSelection: darkMode ? radiusPill : 6
+    readonly property int radiusSelection: darkMode ? radiusPill : 10
     readonly property int touchTarget: 44
-    readonly property int sidebarWidth: darkMode ? 224 : 196
-    readonly property int pageGutter: darkMode ? 16 : 24
-    readonly property int pageTop: darkMode ? 16 : 20
-    readonly property int pageSpacing: 16
+    readonly property int sidebarWidth: darkMode ? 224 : 232
+    readonly property int pageGutter: darkMode ? 16 : 28
+    readonly property int pageTop: darkMode ? 16 : 24
+    readonly property int pageSpacing: darkMode ? 16 : 18
 
     function stateColor(state) {
         if (state === "completed" || state === "ready") {

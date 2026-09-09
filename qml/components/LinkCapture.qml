@@ -8,6 +8,8 @@ Item {
     property alias text: urlField.text
     property bool busy: false
     property bool compact: width < 640
+    property bool workspaceMode: false
+    readonly property int workspaceHeight: 560
 
     signal parseRequested()
     signal pasteRequested()
@@ -15,6 +17,9 @@ Item {
     signal urlsDropped(var urls)
 
     implicitHeight: captureColumn.implicitHeight + 32
+    Layout.fillHeight: root.workspaceMode
+    Layout.minimumHeight: root.workspaceMode ? root.workspaceHeight : 0
+    Layout.preferredHeight: root.workspaceMode ? root.workspaceHeight : implicitHeight
 
     Rectangle {
         anchors.fill: parent
@@ -47,17 +52,17 @@ Item {
             spacing: 10
 
             Rectangle {
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 32
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
                 radius: Theme.radiusSmall
                 color: Theme.violetSurface
 
                 Text {
                     anchors.centerIn: parent
-                    text: "↓"
+                    text: "01"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 19
+                    font.pixelSize: 13
                     font.weight: Font.DemiBold
                 }
             }
@@ -67,7 +72,7 @@ Item {
                 spacing: 2
 
                 Label {
-                    text: "媒体链接"
+                    text: "添加媒体链接"
                     color: Theme.text
                     font.family: Theme.fontFamily
                     font.pixelSize: 15
@@ -75,7 +80,7 @@ Item {
                 }
 
                 Label {
-                    text: root.compact ? "粘贴链接，确认后开始下载" : "粘贴一个或多个链接，先确认媒体信息，再选择输出格式"
+                    text: root.compact ? "粘贴链接，确认后开始下载" : "支持多个公开链接，也可以直接拖入这里"
                     color: Theme.muted
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
@@ -94,7 +99,7 @@ Item {
         TextArea {
             id: urlField
             Layout.fillWidth: true
-            Layout.preferredHeight: root.compact ? 96 : 112
+            Layout.preferredHeight: root.compact ? 92 : 96
             placeholderText: "https://…"
             placeholderTextColor: Theme.subtle
             selectByMouse: true
@@ -128,24 +133,9 @@ Item {
             Layout.fillWidth: true
             spacing: 8
 
-            AppButton {
-                Layout.fillWidth: root.compact
-                text: root.busy ? "正在解析" : "解析媒体"
-                iconText: root.busy ? "◌" : "⌁"
-                variant: "primary"
-                compact: !root.compact
-                enabled: !root.busy && urlField.text.trim().length > 0
-                onClicked: root.parseRequested()
-            }
-
-            AppButton {
-                Layout.fillWidth: root.compact
-                text: "从剪贴板粘贴"
-                iconText: "▣"
-                variant: "secondary"
-                compact: !root.compact
-                enabled: !root.busy
-                onClicked: root.pasteRequested()
+            Item {
+                visible: !root.compact
+                Layout.fillWidth: true
             }
 
             AppButton {
@@ -157,6 +147,59 @@ Item {
                 onClicked: {
                     urlField.clear()
                     root.clearRequested()
+                }
+            }
+
+            AppButton {
+                Layout.fillWidth: root.compact
+                text: "从剪贴板粘贴"
+                iconText: "▣"
+                variant: "secondary"
+                compact: false
+                enabled: !root.busy
+                onClicked: root.pasteRequested()
+            }
+
+            AppButton {
+                Layout.fillWidth: root.compact
+                text: root.busy ? "正在解析" : "解析媒体"
+                iconText: root.busy ? "◌" : "↓"
+                variant: "primary"
+                compact: false
+                enabled: !root.busy && urlField.text.trim().length > 0
+                onClicked: root.parseRequested()
+            }
+        }
+
+        Rectangle {
+            visible: root.workspaceMode
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.minimumHeight: 132
+            radius: Theme.radiusControl
+            color: Qt.alpha(Theme.violetSurface, 0.45)
+            border.width: 1
+            border.color: dropArea.containsDrag ? Theme.accent : Qt.alpha(Theme.accent, 0.20)
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 6
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "拖放链接到这里"
+                    color: Theme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 15
+                    font.weight: Font.DemiBold
+                }
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "支持一次解析多个公开媒体链接"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
                 }
             }
         }

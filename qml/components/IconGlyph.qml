@@ -12,7 +12,7 @@ Item {
 
     Text {
         anchors.centerIn: parent
-        visible: root.name !== "settings"
+        visible: root.name !== "settings" && root.name !== "download" && root.name !== "queue"
         text: root.name
         color: root.color
         font.family: Theme.fontFamily
@@ -20,6 +20,80 @@ Item {
         font.weight: Font.Medium
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
+    }
+
+    Item {
+        anchors.fill: parent
+        visible: root.name === "download"
+
+        Rectangle {
+            width: Math.max(2, root.size * 0.12)
+            height: root.size * 0.46
+            x: (parent.width - width) / 2
+            y: root.size * 0.08
+            radius: width / 2
+            color: root.color
+        }
+
+        Rectangle {
+            width: root.size * 0.38
+            height: Math.max(2, root.size * 0.12)
+            x: root.size * 0.32
+            y: root.size * 0.45
+            rotation: 45
+            radius: height / 2
+            color: root.color
+        }
+
+        Rectangle {
+            width: root.size * 0.38
+            height: Math.max(2, root.size * 0.12)
+            x: root.size * 0.3
+            y: root.size * 0.45
+            rotation: -45
+            radius: height / 2
+            color: root.color
+        }
+
+        Rectangle {
+            width: root.size * 0.68
+            height: Math.max(2, root.size * 0.12)
+            x: (parent.width - width) / 2
+            y: root.size * 0.86
+            radius: height / 2
+            color: root.color
+        }
+    }
+
+    Item {
+        anchors.fill: parent
+        visible: root.name === "queue"
+
+        Repeater {
+            model: 3
+
+            delegate: Item {
+                x: root.size * 0.1
+                y: root.size * (0.18 + index * 0.27)
+                width: root.size * 0.8
+                height: Math.max(2, root.size * 0.12)
+
+                Rectangle {
+                    width: height
+                    height: parent.height
+                    radius: width / 2
+                    color: root.color
+                }
+
+                Rectangle {
+                    x: root.size * 0.2
+                    width: root.size * 0.6
+                    height: parent.height
+                    radius: height / 2
+                    color: root.color
+                }
+            }
+        }
     }
 
     Item {

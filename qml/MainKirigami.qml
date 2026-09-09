@@ -14,6 +14,9 @@ Kirigami.ApplicationWindow {
     minimumHeight: 560
     title: controller.productName
     color: Theme.background
+    background: Rectangle {
+        color: Theme.background
+    }
 
     // Keep Kirigami adaptive while using the shared platform-aware Theme:
     // light and neutral on Windows, Graphite Rose on Android.
@@ -42,17 +45,11 @@ Kirigami.ApplicationWindow {
     readonly property var downloadQueue: queue
 
     function pageIndex() {
-        if (currentPage === "queue") {
-            return 1
-        }
-        if (currentPage === "settings") {
-            return 2
-        }
-        return 0
+        return currentPage === "settings" ? 1 : 0
     }
 
     function navigate(page) {
-        window.currentPage = page
+        window.currentPage = page === "queue" ? "new" : page
         navigationDrawer.close()
     }
 
@@ -202,7 +199,9 @@ Kirigami.ApplicationWindow {
 
     globalDrawer: Kirigami.GlobalDrawer {
         id: navigationDrawer
-        visible: !window.narrowDesktop
+        visible: window.mobilePlatform
+        enabled: window.mobilePlatform
+        handleVisible: window.mobilePlatform
         title: window.appController.productName
         isMenu: false
         actions: [
@@ -212,13 +211,6 @@ Kirigami.ApplicationWindow {
                 checkable: true
                 checked: window.currentPage === "new"
                 onTriggered: window.navigate("new")
-            },
-            Kirigami.Action {
-                text: "下载队列"
-                icon.name: "view-list-details"
-                checkable: true
-                checked: window.currentPage === "queue"
-                onTriggered: window.navigate("queue")
             },
             Kirigami.Action {
                 text: "设置"
@@ -243,86 +235,49 @@ Kirigami.ApplicationWindow {
     // A narrow desktop window has enough width for a real page switcher but
     // not enough room for the full drawer + activity workspace. Kirigami's
     // tab bar keeps the navigation reachable without duplicating page state.
-    footer: Kirigami.NavigationTabBar {
+    footer: MobileBottomBar {
         id: narrowNavigation
         visible: window.narrowDesktop
         height: visible ? implicitHeight : 0
-        Accessible.name: "主要页面导航"
-
-        Kirigami.Theme.inherit: false
-        Kirigami.Theme.colorSet: Kirigami.Theme.Window
-        Kirigami.Theme.backgroundColor: Theme.surface
-        Kirigami.Theme.textColor: Theme.text
-        Kirigami.Theme.highlightColor: Theme.accent
-
-        background: Rectangle {
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.border
-        }
-
-        actions: [
-            Kirigami.Action {
-                text: "新建下载"
-                icon.name: "list-add"
-                checked: window.currentPage === "new"
-                onTriggered: window.navigate("new")
-            },
-            Kirigami.Action {
-                text: "下载队列"
-                icon.name: "view-list-details"
-                checked: window.currentPage === "queue"
-                onTriggered: window.navigate("queue")
-            },
-            Kirigami.Action {
-                text: "设置"
-                icon.name: "settings-configure"
-                checked: window.currentPage === "settings"
-                onTriggered: window.navigate("settings")
-            }
-        ]
+        currentPage: window.currentPage
+        onNavigate: page => window.navigate(page)
     }
 
-    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.Titles
+    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.None
 
     pageStack.initialPage: Kirigami.Page {
         id: workbenchPage
-        title: window.currentPage === "new" ? "新建下载"
-              : (window.currentPage === "queue" ? "下载队列" : "设置")
+        title: window.currentPage === "settings" ? "设置" : "下载工作台"
         padding: 0
+        background: Rectangle {
+            color: Theme.background
+        }
 
         ColumnLayout {
             anchors.fill: parent
             spacing: 0
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 64
-                    color: Theme.surface
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
-                        color: Theme.border
-                    }
+            Rectangle {
+                visible: window.toolLocator.checking || !window.toolLocator.ready
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 54 : 0
+                color: Theme.background
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 24
-                        anchors.rightMargin: 24
+                        anchors.leftMargin: Theme.pageGutter
+                        anchors.rightMargin: Theme.pageGutter
                         spacing: 12
 
-                            Label {
-                                Layout.fillWidth: true
-                                text: window.currentPage === "new" ? "粘贴链接，确认媒体信息后选择输出格式"
-                                      : (window.currentPage === "queue" ? window.downloadQueue.statusText : "让下载流程保持顺手")
-                                color: Theme.muted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
-                            }
+                        Label {
+                            Layout.fillWidth: true
+                            text: window.toolLocator.checking ? "正在检查下载引擎" : "下载工具尚未就绪"
+                            color: Theme.muted
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
 
                     StatusPill {
                         state: window.toolLocator.checking ? "downloading" : (window.toolLocator.ready ? "completed" : "failed")
@@ -336,6 +291,14 @@ Kirigami.ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 0
+
+                DesktopSidebar {
+                    visible: !window.mobilePlatform && !window.narrowDesktop
+                    currentPage: window.currentPage
+                    toolsReady: window.toolLocator.ready
+                    productName: window.appController.productName
+                    onNavigate: function (page) { window.navigate(page) }
+                }
 
                 StackLayout {
                     id: pages
@@ -351,14 +314,9 @@ Kirigami.ApplicationWindow {
                         inspector: window.mediaInspector
                         downloads: window.downloadManager
                         queue: window.downloadQueue
+                        inlineQueue: !window.wideWidth
                         initialUrl: window.pendingExternalUrl
-                        onOpenQueue: window.navigate("queue")
                         onOpenTools: window.navigate("settings")
-                    }
-
-                    KirigamiQueuePage {
-                        queue: window.downloadQueue
-                        onOpenNew: window.navigate("new")
                     }
 
                     KirigamiSettingsPage {
@@ -370,10 +328,12 @@ Kirigami.ApplicationWindow {
                 }
 
                 ActivityPanel {
-                    visible: window.wideWidth
-                    Layout.preferredWidth: window.wideWidth ? 300 : 0
+                    visible: window.wideWidth && window.currentPage !== "settings"
+                    Layout.preferredWidth: visible ? 312 : 0
+                    Layout.topMargin: visible ? Theme.pageTop : 0
+                    Layout.rightMargin: visible ? 18 : 0
+                    Layout.bottomMargin: visible ? 18 : 0
                     queue: window.downloadQueue
-                    onOpenQueue: window.navigate("queue")
                 }
             }
         }

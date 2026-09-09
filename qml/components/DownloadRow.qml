@@ -90,6 +90,7 @@ Item {
         }
 
         SignalTrace {
+            visible: root.taskState === "downloading"
             Layout.fillWidth: true
             progress: task.progress || 0
             state: root.taskState
@@ -108,11 +109,13 @@ Item {
                     if (task.progress !== undefined && root.taskState === "downloading") {
                         details.push(Math.round(task.progress * 100) + "%")
                     }
-                    if (task.speed) {
+                    if (root.taskState === "downloading" && task.speed) {
                         details.push(task.speed)
                     }
-                    if (task.eta) {
-                        details.push("剩余 " + task.eta)
+                    var eta = (task.eta || "").trim()
+                    if (root.taskState === "downloading" && eta) {
+                        var unknownEta = eta.toUpperCase() === "NA" || eta.toUpperCase() === "N/A"
+                        details.push(unknownEta ? "预计时间计算中" : "剩余 " + eta)
                     }
                     if (root.taskState === "completed" && task.outputPath) {
                         details.push("已保存")

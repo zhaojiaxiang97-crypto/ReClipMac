@@ -9,6 +9,7 @@ Item {
     property var settings: null
     property bool compact: width < 680
     property string outputFormat: settings ? settings.defaultOutputFormat : "mp4"
+    readonly property bool iosPlatform: Qt.platform.os === "ios"
 
     signal downloadRequested(string format)
     signal queueRequested(string format)
@@ -54,7 +55,7 @@ Item {
                 spacing: 2
 
                 Label {
-                    text: "媒体已准备好"
+                    text: root.iosPlatform ? "原始媒体已准备好" : "媒体已准备好"
                     color: Theme.signal
                     font.family: Theme.fontFamily
                     font.pixelSize: 15
@@ -62,7 +63,7 @@ Item {
                 }
 
                 Label {
-                    text: "确认输出格式后开始下载"
+                    text: root.iosPlatform ? "iOS 将保留原始格式，不做转码" : "确认输出格式后开始下载"
                     color: Theme.muted
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
@@ -92,6 +93,7 @@ Item {
                 inspector: root.inspector
                 settings: root.settings
                 compact: false
+                iosPlatform: root.iosPlatform
                 onDownloadRequested: function (format) { root.downloadRequested(format) }
                 onQueueRequested: function (format) { root.queueRequested(format) }
             }
@@ -113,6 +115,7 @@ Item {
                 inspector: root.inspector
                 settings: root.settings
                 compact: true
+                iosPlatform: root.iosPlatform
                 onDownloadRequested: function (format) { root.downloadRequested(format) }
                 onQueueRequested: function (format) { root.queueRequested(format) }
             }
@@ -165,6 +168,7 @@ Item {
         property var inspector: null
         property var settings: null
         property bool compact: false
+        property bool iosPlatform: false
         signal downloadRequested(string format)
         signal queueRequested(string format)
 
@@ -205,8 +209,18 @@ Item {
 
         Item { Layout.preferredHeight: 3 }
 
+        Label {
+            visible: details.iosPlatform
+            Layout.fillWidth: true
+            text: "格式  原始文件（不转换）"
+            color: Theme.muted
+            font.family: Theme.fontFamily
+            font.pixelSize: 13
+        }
+
         ComboBox {
             id: formatCombo
+            visible: !details.iosPlatform
             Layout.fillWidth: true
             model: ["MP4 视频", "MP3 音频"]
             currentIndex: details.settings && details.settings.defaultOutputFormat === "mp3" ? 1 : 0
@@ -239,7 +253,7 @@ Item {
 
         ComboBox {
             id: qualityCombo
-            visible: formatCombo.currentIndex === 0
+            visible: !details.iosPlatform && formatCombo.currentIndex === 0
             Layout.fillWidth: true
             model: details.inspector ? details.inspector.formatLabels : []
             currentIndex: details.inspector && details.inspector.formatLabels.length > 0 ? 0 : -1
@@ -277,10 +291,12 @@ Item {
 
             AppButton {
                 Layout.fillWidth: true
-                text: details.settings && details.settings.defaultOutputFormat === "mp3" ? "下载 MP3" : "下载 MP4"
+                text: details.iosPlatform ? "下载原始媒体"
+                      : (details.settings && details.settings.defaultOutputFormat === "mp3" ? "下载 MP3" : "下载 MP4")
                 iconText: "↓"
                 variant: "primary"
-                onClicked: details.downloadRequested(details.settings ? details.settings.defaultOutputFormat : "mp4")
+                onClicked: details.downloadRequested(details.iosPlatform ? "mp4"
+                                                      : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
             }
 
             AppButton {
@@ -288,7 +304,8 @@ Item {
                 text: "加入队列"
                 iconText: "+"
                 variant: "secondary"
-                onClicked: details.queueRequested(details.settings ? details.settings.defaultOutputFormat : "mp4")
+                onClicked: details.queueRequested(details.iosPlatform ? "mp4"
+                                                    : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
             }
         }
 
@@ -298,7 +315,8 @@ Item {
             text: "加入下载队列"
             iconText: "+"
             variant: "secondary"
-            onClicked: details.queueRequested(details.settings ? details.settings.defaultOutputFormat : "mp4")
+            onClicked: details.queueRequested(details.iosPlatform ? "mp4"
+                                                : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
         }
     }
 }

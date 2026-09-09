@@ -12,13 +12,25 @@ Item {
     property var platformStorage: null
     property bool compact: width < 700
     readonly property bool mobilePlatform: Qt.platform.os === "android" || Qt.platform.os === "ios"
+    readonly property bool iosPlatform: Qt.platform.os === "ios"
 
-    FolderDialog {
-        id: folderDialog
-        title: "选择下载目录"
-        onAccepted: {
-            if (root.settings) {
-                root.settings.downloadDirectory = selectedFolder.toLocalFile()
+    function openFolderDialog() {
+        if (folderDialogLoader.item) {
+            folderDialogLoader.item.open()
+        }
+    }
+
+    Loader {
+        id: folderDialogLoader
+        active: !root.mobilePlatform
+        sourceComponent: Component {
+            FolderDialog {
+                title: "选择下载目录"
+                onAccepted: {
+                    if (root.settings) {
+                        root.settings.downloadDirectory = selectedFolder.toLocalFile()
+                    }
+                }
             }
         }
     }
@@ -27,11 +39,11 @@ Item {
         id: scroll
         anchors.fill: parent
         clip: true
-        contentWidth: availableWidth
+        contentWidth: Math.max(availableWidth || 0, 0)
 
         ColumnLayout {
             id: content
-            width: Math.max(scroll.availableWidth - (root.compact ? 32 : Theme.pageGutter * 2), 0)
+            width: Math.max((scroll.availableWidth || 0) - (root.compact ? 32 : Theme.pageGutter * 2), 0)
             x: root.compact ? 16 : Theme.pageGutter
             y: root.compact ? 16 : Theme.pageTop
             spacing: root.compact ? 16 : Theme.pageSpacing
@@ -111,7 +123,7 @@ Item {
                             iconText: "□"
                             variant: "secondary"
                             compact: true
-                            onClicked: folderDialog.open()
+                            onClicked: root.openFolderDialog()
                         }
 
                         AppButton {
@@ -144,7 +156,7 @@ Item {
 
             SectionTitle {
                 visible: root.mobilePlatform
-                text: "文件导出"
+                text: root.iosPlatform ? "文件保存" : "文件导出"
             }
 
             Rectangle {
@@ -163,7 +175,8 @@ Item {
                     spacing: 10
 
                     Label {
-                        text: "临时文件保存在应用私有目录"
+                        text: root.iosPlatform ? "文件保存在“文件”App 的 ReClip 文件夹"
+                                               : "临时文件保存在应用私有目录"
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: 14
@@ -188,7 +201,9 @@ Item {
 
                     Label {
                         Layout.fillWidth: true
-                        text: root.settings ? root.settings.exportDirectoryStatus : ""
+                        text: root.iosPlatform
+                              ? "下载完成后可在传输队列中打开文件。"
+                              : (root.settings ? root.settings.exportDirectoryStatus : "")
                         color: root.settings && root.settings.exportDirectorySelected
                                ? Theme.signal : Theme.warningText
                         font.family: Theme.fontFamily
@@ -197,6 +212,7 @@ Item {
                     }
 
                     RowLayout {
+                        visible: !root.iosPlatform
                         Layout.fillWidth: true
                         spacing: 8
 
@@ -219,7 +235,7 @@ Item {
                     }
 
                     AppButton {
-                        visible: root.settings && root.settings.exportDirectorySelected
+                        visible: !root.iosPlatform && root.settings && root.settings.exportDirectorySelected
                         Layout.fillWidth: true
                         text: "打开导出目录"
                         variant: "secondary"
@@ -237,11 +253,22 @@ Item {
                 }
             }
 
-            SectionTitle { text: "工具诊断" }
+            SectionTitle {
+                visible: !root.iosPlatform
+                text: "工具诊断"
+            }
 
             InlineNotice {
                 Layout.fillWidth: true
-                visible: root.tools && !root.tools.ready && !root.tools.checking
+                visible: root.iosPlatform
+                tone: "info"
+                title: "iOS 原生下载"
+                body: "仅支持 HTTPS 直接音视频文件链接；文件会保留原始格式。"
+            }
+
+            InlineNotice {
+                Layout.fillWidth: true
+                visible: !root.iosPlatform && root.tools && !root.tools.ready && !root.tools.checking
                 tone: "warning"
                 title: "下载工具需要处理"
                 body: root.mobilePlatform
@@ -250,6 +277,7 @@ Item {
             }
 
             ToolStatusRow {
+                visible: !root.iosPlatform
                 Layout.fillWidth: true
                 displayName: "yt-dlp"
                 available: root.tools ? root.tools.ytDlpAvailable : false
@@ -263,6 +291,7 @@ Item {
             }
 
             ToolStatusRow {
+                visible: !root.iosPlatform
                 Layout.fillWidth: true
                 displayName: "FFmpeg"
                 available: root.tools ? root.tools.ffmpegAvailable : false
@@ -276,7 +305,7 @@ Item {
             }
 
             ToolStatusRow {
-                visible: !root.mobilePlatform
+                visible: !root.mobilePlatform && !root.iosPlatform
                 Layout.fillWidth: true
                 displayName: "FFprobe"
                 available: root.tools ? root.tools.ffprobeAvailable : false
@@ -290,6 +319,7 @@ Item {
             }
 
             AppButton {
+                visible: !root.iosPlatform
                 Layout.alignment: root.compact ? Qt.AlignHCenter : Qt.AlignLeft
                 text: root.tools && root.tools.checking ? "正在检测" : "重新检测工具"
                 iconText: "⟳"

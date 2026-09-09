@@ -6,14 +6,6 @@ import ReClip
 ApplicationWindow {
     id: window
 
-    visible: true
-    width: 1200
-    height: 780
-    minimumWidth: 560
-    minimumHeight: 560
-    title: controller.productName
-    color: Theme.background
-
     property string currentPage: "new"
     property string pendingExternalUrl: ""
     readonly property bool mobilePlatform: Qt.platform.os === "android" || Qt.platform.os === "ios"
@@ -26,6 +18,14 @@ ApplicationWindow {
     readonly property var mediaInspector: inspector
     readonly property var downloadManager: downloads
     readonly property var downloadQueue: queue
+
+    width: 1200
+    height: 780
+    minimumWidth: mobilePlatform ? 0 : 560
+    minimumHeight: mobilePlatform ? 0 : 560
+    visible: true
+    title: controller.productName
+    color: Theme.background
 
     function pageIndex() {
         if (currentPage === "queue") {
@@ -57,12 +57,6 @@ ApplicationWindow {
             return true
         }
         return false
-    }
-
-    Keys.onReleased: function (event) {
-        if (event.key === Qt.Key_Back && window.handleBackAction()) {
-            event.accepted = true
-        }
     }
 
     // Android delivers the system back action as a window close request on
@@ -290,11 +284,31 @@ ApplicationWindow {
             }
 
             ActivityPanel {
-                visible: window.wideWidth
-                Layout.preferredWidth: window.wideWidth ? 300 : 0
+                visible: window.wideWidth && window.currentPage !== "settings"
+                Layout.preferredWidth: visible ? 300 : 0
                 queue: window.downloadQueue
                 onOpenQueue: window.navigate("queue")
             }
+        }
+    }
+
+    Component {
+        id: iosSettingsPage
+
+        IosSettingsPage {
+            settings: window.appSettings
+            controller: window.appController
+        }
+    }
+
+    Component {
+        id: mobileSettingsPage
+
+        SettingsPage {
+            settings: window.appSettings
+            tools: window.toolLocator
+            controller: window.appController
+            platformStorage: window.platformStorage
         }
     }
 
@@ -365,17 +379,15 @@ ApplicationWindow {
                     onOpenQueue: window.navigate("queue")
                     onOpenTools: window.navigate("settings")
                 }
-
                 QueuePage {
                     queue: window.downloadQueue
                 }
 
-                    SettingsPage {
-                        settings: window.appSettings
-                        tools: window.toolLocator
-                        controller: window.appController
-                        platformStorage: window.platformStorage
-                    }
+                Loader {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    sourceComponent: Qt.platform.os === "ios" ? iosSettingsPage : mobileSettingsPage
+                }
             }
 
             MobileBottomBar {

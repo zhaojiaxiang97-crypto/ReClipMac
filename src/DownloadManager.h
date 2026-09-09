@@ -1,6 +1,8 @@
 #pragma once
 
+#ifndef Q_OS_IOS
 #include <QProcess>
+#endif
 #include <QString>
 #include <QUrl>
 #include <QObject>
@@ -74,8 +76,10 @@ signals:
     void platformStorageChanged();
 
 private:
+#ifndef Q_OS_IOS
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+#endif
     void handleAndroidDownloadProgress(const QString &requestId,
                                        double progress,
                                        const QString &eta,
@@ -99,7 +103,9 @@ private:
     static QString friendlyError(const QString &rawMessage);
     static bool isHttpUrl(const QUrl &url);
 
+#ifndef Q_OS_IOS
     QProcess m_process;
+#endif
     AndroidDownloadEngine m_androidEngine;
     QByteArray m_stdoutBuffer;
     QByteArray m_stderrBuffer;

@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 
 project(VideoDownloader VERSION 0.1.0 LANGUAGES CXX)
 
-if(APPLE)
+set(RECLIP_IOS OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(RECLIP_IOS ON)
+endif()
+
+if(APPLE AND NOT RECLIP_IOS)
     set(RECLIP_MACOS_DEPLOYMENT_TARGET "14.0" CACHE STRING
         "Minimum macOS version supported by Video Downloader")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "${RECLIP_MACOS_DEPLOYMENT_TARGET}"
@@ -29,7 +34,7 @@ set(RECLIP_KIRIGAMI_PREFIX
 )
 
 set(RECLIP_HAS_KIRIGAMI OFF)
-if(RECLIP_ENABLE_KIRIGAMI)
+if(RECLIP_ENABLE_KIRIGAMI AND NOT RECLIP_IOS)
     if(EXISTS "${RECLIP_KIRIGAMI_PREFIX}")
         list(PREPEND CMAKE_PREFIX_PATH "${RECLIP_KIRIGAMI_PREFIX}")
     endif()
@@ -62,11 +67,13 @@ if(RECLIP_ENABLE_KIRIGAMI)
     else()
         message(STATUS "Kirigami not found; using the Qt Quick Controls 2 shell")
     endif()
+elseif(RECLIP_IOS)
+    message(STATUS "Kirigami disabled for iOS; using the native mobile shell")
 else()
     message(STATUS "Kirigami disabled by RECLIP_ENABLE_KIRIGAMI=OFF")
 endif()
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2 Network)
 if(RECLIP_HAS_KIRIGAMI)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Svg Concurrent ShaderTools)
     set(QML_IMPORT_PATH "${RECLIP_KIRIGAMI_QML_DIR}")
@@ -88,7 +95,7 @@ qt_add_executable(${RECLIP_APP_TARGET}
     src/main.cpp
 )
 
-if(APPLE)
+if(APPLE AND NOT RECLIP_IOS)
     set_source_files_properties(
         "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/ReClip.icns"
         PROPERTIES MACOSX_PACKAGE_LOCATION "Resources"
@@ -105,6 +112,8 @@ set(RECLIP_QML_FILES
     qml/Theme.qml
     qml/components/ActivityPanel.qml
     qml/components/AppButton.qml
+    qml/components/AppSelect.qml
+    qml/components/AppTextField.qml
     qml/components/DesktopSidebar.qml
     qml/components/DownloadRow.qml
     qml/components/DownloadStatusPanel.qml
@@ -118,8 +127,12 @@ set(RECLIP_QML_FILES
     qml/components/StatusPill.qml
     qml/components/ToolStatusCard.qml
     qml/components/ToolStatusRow.qml
+    qml/vendor/QuickMaterial/Corner.qml
+    qml/vendor/QuickMaterial/Metrics.qml
+    qml/vendor/QuickMaterial/States.qml
     qml/pages/NewDownloadPage.qml
     qml/pages/QueuePage.qml
+    qml/pages/IosSettingsPage.qml
     qml/pages/SettingsPage.qml
 )
 
@@ -132,10 +145,17 @@ if(RECLIP_HAS_KIRIGAMI)
     )
 endif()
 
+set(RECLIP_DOWNLOAD_MANAGER_SOURCE src/DownloadManager.cpp)
+if(RECLIP_IOS)
+    set(RECLIP_DOWNLOAD_MANAGER_SOURCE src/DownloadManagerIos.cpp)
+endif()
+
 qt_add_qml_module(${RECLIP_APP_TARGET}
     URI ReClip
     VERSION 1.0
     QML_FILES ${RECLIP_QML_FILES}
+RESOURCES
+    qml/vendor/QuickMaterial/qmldir
     SOURCES
         src/AppController.h
         src/AppController.cpp
@@ -148,7 +168,7 @@ qt_add_qml_module(${RECLIP_APP_TARGET}
         src/MediaInspector.h
         src/MediaInspector.cpp
         src/DownloadManager.h
-        src/DownloadManager.cpp
+        ${RECLIP_DOWNLOAD_MANAGER_SOURCE}
         src/DownloadQueue.h
         src/DownloadQueue.cpp
         src/AppSettings.h
@@ -162,14 +182,19 @@ set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_BUNDLE_NAME "Video Downloader"
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.reclip.app"
-    MACOSX_BUNDLE_ICON_FILE "ReClip.icns"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     WIN32_EXECUTABLE TRUE
 )
 
-if(APPLE)
+if(RECLIP_IOS)
     set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/packaging/Info.ios.plist.in"
+        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+    )
+elseif(APPLE)
+    set_target_properties(${RECLIP_APP_TARGET} PROPERTIES
+        MACOSX_BUNDLE_ICON_FILE "ReClip.icns"
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/ReClipInfo.plist"
     )
 endif()
@@ -196,6 +221,7 @@ endif()
 target_link_libraries(${RECLIP_APP_TARGET} PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::Network
 )
 
 if(RECLIP_HAS_KIRIGAMI)

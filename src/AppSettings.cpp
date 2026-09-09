@@ -84,6 +84,8 @@ QString AppSettings::exportDirectoryStatus() const
     }
     return QStringLiteral("已选择导出目录：%1；如果权限失效，请重新选择目录")
         .arg(m_exportDirectoryLabel.isEmpty() ? QStringLiteral("已选择的目录") : m_exportDirectoryLabel);
+#elif defined(Q_OS_IOS)
+    return QStringLiteral("文件保存在“文件”App 的 ReClip 文件夹，可在下载完成后打开或分享");
 #else
     return QStringLiteral("桌面端直接保存到当前下载目录");
 #endif

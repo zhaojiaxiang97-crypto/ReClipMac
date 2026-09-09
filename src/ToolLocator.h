@@ -1,6 +1,8 @@
 #pragma once
 
+#ifndef Q_OS_IOS
 #include <QProcess>
+#endif
 #include <QString>
 #include <QStringList>
 #include <QObject>
@@ -80,7 +82,9 @@ private:
     void detectNext();
     void finishCurrent(bool available, const QString &version, const QString &message);
 
+#ifndef Q_OS_IOS
     QProcess m_process;
+#endif
     AndroidDownloadEngine m_androidEngine;
     QStringList m_pendingTools;
     QString m_currentTool;

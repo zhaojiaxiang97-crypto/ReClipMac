@@ -9,7 +9,7 @@ Rectangle {
     signal navigate(string page)
 
     Layout.fillWidth: true
-    Layout.preferredHeight: 92
+    implicitHeight: 84
     color: Theme.surface
     border.color: Theme.border
     border.width: 1
@@ -24,22 +24,18 @@ Rectangle {
 
         NavItem {
             Layout.fillWidth: true
-            text: "新建"
-            iconText: "+"
+            Layout.preferredWidth: 1
+            Layout.minimumWidth: 0
+            text: "下载工作台"
+            iconText: "download"
             selected: root.currentPage === "new"
             onClicked: root.navigate("new")
         }
 
         NavItem {
             Layout.fillWidth: true
-            text: "队列"
-            iconText: "≡"
-            selected: root.currentPage === "queue"
-            onClicked: root.navigate("queue")
-        }
-
-        NavItem {
-            Layout.fillWidth: true
+            Layout.preferredWidth: 1
+            Layout.minimumWidth: 0
             text: "设置"
             iconText: "settings"
             selected: root.currentPage === "settings"
@@ -51,7 +47,10 @@ Rectangle {
         id: item
         property bool selected: false
         property string iconText: ""
-        implicitHeight: 72
+        implicitHeight: 64
+        Layout.preferredWidth: 1
+        Layout.minimumWidth: 0
+        Layout.fillWidth: true
         topPadding: 6
         bottomPadding: 6
 
@@ -60,27 +59,16 @@ Rectangle {
             anchors.centerIn: parent
 
             IconGlyph {
-                visible: item.iconText === "settings"
-                name: "settings"
-                color: item.selected ? Theme.text : Theme.muted
+                name: item.iconText
+                color: item.selected ? Theme.accent : Theme.muted
                 size: 22
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
             Text {
-                visible: item.iconText !== "settings"
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: item.iconText
-                color: item.selected ? Theme.text : Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 20
-                font.weight: Font.Medium
-            }
-
-            Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: item.text
-                color: item.selected ? Theme.text : Theme.muted
+                color: item.selected ? Theme.accent : Theme.muted
                 font.family: Theme.fontFamily
                 font.pixelSize: 11
                 font.weight: item.selected ? Font.Medium : Font.Normal
@@ -88,11 +76,11 @@ Rectangle {
         }
 
         background: Rectangle {
-            width: Math.min(item.width - 24, 190)
-            height: 64
-            anchors.centerIn: parent
+            anchors.fill: parent
             radius: Theme.radiusSelection
-            color: item.selected ? Theme.selectionSurface : (item.hovered ? Theme.surfaceAlt : "transparent")
+            color: item.selected ? Theme.selectionSurface : Theme.surfaceAlt
+            border.width: 1
+            border.color: item.selected ? Theme.accent : Theme.border
         }
     }
 }

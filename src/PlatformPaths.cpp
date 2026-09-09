@@ -27,6 +27,9 @@ QString defaultDownloadDirectory()
     // should only be used after the user grants an export location. Keep the
     // initial working output inside the app sandbox instead.
     return QDir(appDataDirectory()).filePath(QStringLiteral("downloads"));
+#elif defined(Q_OS_IOS)
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation))
+        .filePath(QStringLiteral("ReClip"));
 #else
     const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     return QDir(downloads).filePath(QStringLiteral("ReClip"));

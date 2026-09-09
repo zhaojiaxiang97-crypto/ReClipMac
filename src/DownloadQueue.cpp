@@ -1,6 +1,11 @@
 #include "DownloadQueue.h"
 #include "PlatformPaths.h"
 
+#ifdef Q_OS_IOS
+#include <QNetworkRequest>
+#include <QtMath>
+#endif
+
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -34,10 +39,14 @@ bool hasUsableDownloadStorage(const QString &path)
 DownloadQueue::DownloadQueue(QObject *parent)
     : QObject(parent)
     , m_androidEngine(this)
+#ifdef Q_OS_IOS
+    , m_iosNetwork(this)
+#endif
 {
     m_downloadDirectory = PlatformPaths::defaultDownloadDirectory();
     loadPersistedTasks();
 
+#ifndef Q_OS_IOS
     connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
         consumeOutput(m_process.readAllStandardOutput(), m_stdoutBuffer);
     });
@@ -52,6 +61,7 @@ DownloadQueue::DownloadQueue(QObject *parent)
             [this](QProcess::ProcessError error) {
                 handleProcessError(error);
             });
+#endif
     connect(&m_androidEngine,
             &AndroidDownloadEngine::downloadProgress,
             this,
@@ -244,11 +254,7 @@ void DownloadQueue::cancelTask(const QString &taskId)
     if (index == m_activeIndex) {
         task.cancelRequested = true;
         task.statusText = QStringLiteral("正在取消…");
-        if (!m_androidRequestId.isEmpty()) {
-            m_androidEngine.cancel(m_androidRequestId);
-        } else {
-            m_process.terminate();
-        }
+        cancelActiveTask();
     } else if (task.state == QStringLiteral("queued") || task.state == QStringLiteral("waiting")) {
         task.state = QStringLiteral("cancelled");
         task.statusText = QStringLiteral("已取消");
@@ -291,11 +297,7 @@ void DownloadQueue::removeTask(const QString &taskId)
         m_tasks[index].removeAfterFinish = true;
         m_tasks[index].cancelRequested = true;
         m_tasks[index].statusText = QStringLiteral("正在删除…");
-        if (!m_androidRequestId.isEmpty()) {
-            m_androidEngine.cancel(m_androidRequestId);
-        } else {
-            m_process.terminate();
-        }
+        cancelActiveTask();
         notifyQueueChanged();
         return;
     }
@@ -364,6 +366,23 @@ int DownloadQueue::indexForId(const QString &taskId) const
     return -1;
 }
 
+void DownloadQueue::cancelActiveTask()
+{
+#ifdef Q_OS_IOS
+    if (m_iosReply) {
+        m_iosReply->abort();
+        return;
+    }
+#endif
+#ifndef Q_OS_IOS
+    if (!m_androidRequestId.isEmpty()) {
+        m_androidEngine.cancel(m_androidRequestId);
+    } else {
+        m_process.terminate();
+    }
+#endif
+}
+
 void DownloadQueue::startNext()
 {
     if (m_activeIndex >= 0 || !m_queueRequested) {
@@ -393,7 +412,8 @@ void DownloadQueue::startTask(int index)
 #else
     const bool androidEngineAvailable = false;
 #endif
-#ifndef Q_OS_ANDROID
+#if defined(Q_OS_IOS)
+#elif !defined(Q_OS_ANDROID)
     if (m_ytDlpPath.trimmed().isEmpty() || m_ffmpegPath.trimmed().isEmpty()) {
         task.state = QStringLiteral("failed");
         task.statusText = QStringLiteral("工具不可用");
@@ -440,6 +460,11 @@ void DownloadQueue::startTask(int index)
     task.errorMessage.clear();
     task.cancelRequested = false;
 
+#ifdef Q_OS_IOS
+    startIosDownload(task);
+    return;
+#endif
+
 #ifdef Q_OS_ANDROID
     if (androidEngineAvailable) {
         m_androidRequestId = m_androidEngine.download(
@@ -455,6 +480,7 @@ void DownloadQueue::startTask(int index)
     }
 #endif
 
+#ifndef Q_OS_IOS
     const QString outputTemplate = directory.filePath(QStringLiteral("%(title).200B [%(id)s].%(ext)s"));
     QStringList arguments {
         QStringLiteral("--no-playlist"),
@@ -486,8 +512,112 @@ void DownloadQueue::startTask(int index)
     m_process.setProcessChannelMode(QProcess::SeparateChannels);
     m_process.start();
     notifyQueueChanged();
+#endif
 }
 
+#ifdef Q_OS_IOS
+void DownloadQueue::startIosDownload(Task &task)
+{
+    QDir directory(m_downloadDirectory);
+    QString fileName = QFileInfo(QUrl(task.sourceUrl).path()).fileName();
+    if (fileName.isEmpty()) {
+        fileName = QStringLiteral("ReClip-%1.%2").arg(task.id.left(8), task.format);
+    } else if (QFileInfo(fileName).suffix().isEmpty()) {
+        fileName += QStringLiteral(".") + task.format;
+    }
+
+    QString outputPath = directory.filePath(fileName);
+    if (QFileInfo::exists(outputPath)) {
+        const QFileInfo existing(fileName);
+        outputPath = directory.filePath(QStringLiteral("%1-%2.%3")
+            .arg(existing.completeBaseName(), task.id.left(8), existing.suffix()));
+    }
+    task.outputPath = outputPath;
+    m_iosOutputFile.setFileName(outputPath);
+    if (!m_iosOutputFile.open(QIODevice::WriteOnly)) {
+        finishActive(QStringLiteral("failed"), QStringLiteral("下载失败"),
+                     QStringLiteral("无法创建文件：%1").arg(m_iosOutputFile.errorString()));
+        return;
+    }
+
+    QNetworkRequest request(QUrl(task.sourceUrl));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply = m_iosNetwork.get(request);
+    m_iosReply = reply;
+    m_iosElapsed.start();
+
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply] {
+        const QByteArray data = reply->readAll();
+        if (!data.isEmpty() && m_iosOutputFile.write(data) != data.size()) {
+            m_lastErrorText = QStringLiteral("写入文件失败：%1").arg(m_iosOutputFile.errorString());
+            reply->abort();
+        }
+    });
+    connect(reply, &QNetworkReply::downloadProgress, this,
+            [this](qint64 received, qint64 total) { updateIosDownloadProgress(received, total); });
+    connect(reply, &QNetworkReply::finished, this, [this] { finishIosDownload(); });
+    notifyQueueChanged();
+}
+
+void DownloadQueue::finishIosDownload()
+{
+    if (!m_iosReply || m_activeIndex < 0 || m_activeIndex >= m_tasks.size()) {
+        return;
+    }
+
+    QNetworkReply *reply = m_iosReply;
+    m_iosReply = nullptr;
+    const QByteArray remaining = reply->readAll();
+    if (!remaining.isEmpty() && m_iosOutputFile.write(remaining) != remaining.size()) {
+        m_lastErrorText = QStringLiteral("写入文件失败：%1").arg(m_iosOutputFile.errorString());
+    }
+    m_iosOutputFile.close();
+
+    const Task &task = m_tasks[m_activeIndex];
+    const bool cancelled = task.cancelRequested;
+    const bool succeeded = !cancelled && reply->error() == QNetworkReply::NoError
+        && m_lastErrorText.isEmpty();
+    const QString error = m_lastErrorText.isEmpty() ? reply->errorString() : m_lastErrorText;
+    reply->deleteLater();
+
+    if (!succeeded) {
+        QFile::remove(task.outputPath);
+        finishActive(cancelled ? QStringLiteral("cancelled") : QStringLiteral("failed"),
+                     cancelled ? QStringLiteral("已取消") : QStringLiteral("下载失败"),
+                     cancelled ? QString() : friendlyError(error));
+        return;
+    }
+
+    m_tasks[m_activeIndex].progress = 1.0;
+    m_tasks[m_activeIndex].speed.clear();
+    m_tasks[m_activeIndex].eta.clear();
+    finishActive(QStringLiteral("completed"), QStringLiteral("下载完成"));
+}
+
+void DownloadQueue::updateIosDownloadProgress(qint64 received, qint64 total)
+{
+    if (m_activeIndex < 0 || m_activeIndex >= m_tasks.size()) {
+        return;
+    }
+
+    Task &task = m_tasks[m_activeIndex];
+    if (total > 0) {
+        task.progress = qBound(0.0, static_cast<double>(received) / static_cast<double>(total), 1.0);
+    }
+    const qint64 elapsed = m_iosElapsed.elapsed();
+    if (elapsed >= 500 && received > 0) {
+        const double bytesPerSecond = static_cast<double>(received) * 1000.0 / elapsed;
+        task.speed = QStringLiteral("%1 KiB/s").arg(bytesPerSecond / 1024.0, 0, 'f', 1);
+        if (total > received && bytesPerSecond > 0.0) {
+            task.eta = QString::number(qCeil((total - received) / bytesPerSecond));
+        }
+    }
+    notifyQueueChanged();
+}
+#endif
+
+#ifndef Q_OS_IOS
 void DownloadQueue::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     if (m_activeIndex < 0 || m_activeIndex >= m_tasks.size()) {
@@ -547,6 +677,7 @@ void DownloadQueue::handleProcessError(QProcess::ProcessError error)
         : QStringLiteral("下载进程错误：%1").arg(m_process.errorString());
     finishActive(QStringLiteral("failed"), QStringLiteral("下载失败"), message);
 }
+#endif
 
 void DownloadQueue::handleAndroidDownloadProgress(const QString &requestId,
                                                    double progress,
@@ -871,6 +1002,11 @@ void DownloadQueue::persistTasks() const
 
 void DownloadQueue::notifyQueueChanged()
 {
+    if (m_tasks.isEmpty()) {
+        m_statusText = QStringLiteral("队列为空");
+    } else if (!running()) {
+        m_statusText = QStringLiteral("队列中有 %1 个任务").arg(m_tasks.size());
+    }
     persistTasks();
     emit tasksChanged();
     emit queueChanged();

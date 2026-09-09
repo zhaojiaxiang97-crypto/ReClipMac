@@ -60,43 +60,78 @@ Kirigami.ScrollablePage {
 
         Kirigami.Card {
             Layout.fillWidth: true
+            Layout.maximumWidth: 760
+            Layout.alignment: Qt.AlignLeft
             visible: !root.mobilePlatform
+
+            background: Rectangle {
+                color: Theme.surface
+                radius: Theme.radiusPanel
+                border.width: 1
+                border.color: Theme.border
+            }
 
             contentItem: ColumnLayout {
                 width: parent ? parent.width : 0
                 spacing: Kirigami.Units.smallSpacing
 
-                Kirigami.Heading {
-                    text: "下载位置"
+                Label {
+                    text: "下载目录"
                     color: Theme.text
                     font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    font.weight: Font.DemiBold
+                }
+
+                Label {
+                    text: "下载完成后会保存到此文件夹"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
+                    spacing: 8
 
-                    TextField {
+                    AppTextField {
                         id: directoryField
                         Layout.fillWidth: true
                         text: root.settings ? root.settings.downloadDirectory : ""
                         selectByMouse: true
                         color: Theme.text
                         font.family: Theme.monoFamily
-                        font.pixelSize: 11
+                        font.pixelSize: 13
                         placeholderText: "下载文件夹"
                     }
 
-                    Button {
+                    AppButton {
                         text: root.compact ? "选择" : "选择目录"
-                        icon.name: "folder-open"
+                        iconText: "□"
+                        variant: "secondary"
+                        compact: true
                         onClicked: folderDialog.open()
                     }
 
-                    Button {
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    StatusPill {
+                        state: root.settings && root.settings.downloadDirectoryValid ? "completed" : "failed"
+                        label: root.settings ? root.settings.downloadDirectoryStatus : ""
+                        compact: true
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    AppButton {
                         visible: !root.compact
-                        text: "应用"
-                        icon.name: "dialog-ok-apply"
+                        text: "保存"
+                        iconText: "✓"
+                        variant: "primary"
+                        compact: true
                         onClicked: {
                             if (root.settings) {
                                 root.settings.downloadDirectory = directoryField.text
@@ -105,20 +140,12 @@ Kirigami.ScrollablePage {
                     }
                 }
 
-                Label {
-                    Layout.fillWidth: true
-                    text: root.settings ? root.settings.downloadDirectoryStatus : ""
-                    color: root.settings && root.settings.downloadDirectoryValid ? Theme.signal : Theme.warningText
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
-                }
-
-                Button {
+                AppButton {
                     visible: root.compact
                     Layout.fillWidth: true
                     text: "应用下载目录"
-                    icon.name: "dialog-ok-apply"
+                    iconText: "✓"
+                    variant: "primary"
                     onClicked: {
                         if (root.settings) {
                             root.settings.downloadDirectory = directoryField.text
@@ -131,6 +158,13 @@ Kirigami.ScrollablePage {
         Kirigami.Card {
             Layout.fillWidth: true
             visible: root.mobilePlatform
+
+            background: Rectangle {
+                color: Theme.surface
+                radius: Theme.radiusPanel
+                border.width: 1
+                border.color: Theme.border
+            }
 
             contentItem: ColumnLayout {
                 width: parent ? parent.width : 0
@@ -188,6 +222,13 @@ Kirigami.ScrollablePage {
 
         Kirigami.Card {
             Layout.fillWidth: true
+
+            background: Rectangle {
+                color: Theme.surface
+                radius: Theme.radiusPanel
+                border.width: 1
+                border.color: Theme.border
+            }
 
             contentItem: ColumnLayout {
                 width: parent ? parent.width : 0
@@ -264,11 +305,18 @@ Kirigami.ScrollablePage {
         Kirigami.Card {
             Layout.fillWidth: true
 
+            background: Rectangle {
+                color: Theme.surface
+                radius: Theme.radiusPanel
+                border.width: 1
+                border.color: Theme.border
+            }
+
             contentItem: KirigamiLayouts.FormLayout {
                 width: parent ? parent.width : 0
                 wideMode: !root.compact
 
-                ComboBox {
+                AppSelect {
                     Kirigami.FormData.label: "输出格式"
                     model: ["MP4 视频", "MP3 音频"]
                     currentIndex: root.settings && root.settings.defaultOutputFormat === "mp3" ? 1 : 0
@@ -279,7 +327,7 @@ Kirigami.ScrollablePage {
                     }
                 }
 
-                ComboBox {
+                AppSelect {
                     Kirigami.FormData.label: "清晰度策略"
                     model: ["优先最高质量", "优先兼容性"]
                     currentIndex: root.settings && root.settings.defaultFormatStrategy === "compatible" ? 1 : 0
@@ -290,7 +338,7 @@ Kirigami.ScrollablePage {
                     }
                 }
 
-                ComboBox {
+                AppSelect {
                     Kirigami.FormData.label: "界面语言"
                     model: ["跟随系统", "简体中文", "English"]
                     currentIndex: root.settings && root.settings.language === "zh-cn" ? 1 : (root.settings && root.settings.language === "en" ? 2 : 0)
@@ -301,7 +349,7 @@ Kirigami.ScrollablePage {
                     }
                 }
 
-                ComboBox {
+                AppSelect {
                     Kirigami.FormData.label: "界面主题"
                     model: ["浅色", "深色"]
                     currentIndex: root.settings && root.settings.theme === "dark" ? 1 : 0

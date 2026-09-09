@@ -6,15 +6,24 @@
 #include <QJsonParseError>
 #include <QRegularExpression>
 
+#ifdef Q_OS_IOS
+#include <QFileInfo>
+#include <QNetworkRequest>
+#endif
+
 #include <algorithm>
 
 MediaInspector::MediaInspector(QObject *parent)
     : QObject(parent)
     , m_androidEngine(this)
+#ifdef Q_OS_IOS
+    , m_iosNetwork(this)
+#endif
 {
     m_timeout.setSingleShot(true);
     m_timeout.setInterval(35000);
 
+#ifndef Q_OS_IOS
     connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
         m_standardOutput += m_process.readAllStandardOutput();
     });
@@ -29,6 +38,7 @@ MediaInspector::MediaInspector(QObject *parent)
             [this](QProcess::ProcessError error) {
                 handleProcessError(error);
             });
+#endif
     connect(&m_androidEngine,
             &AndroidDownloadEngine::inspectionFinished,
             this,
@@ -39,12 +49,20 @@ MediaInspector::MediaInspector(QObject *parent)
         }
 
         m_inspecting = false;
+#ifndef Q_OS_IOS
         if (m_process.state() != QProcess::NotRunning) {
             m_process.kill();
         }
+#endif
         if (!m_androidRequestId.isEmpty()) {
             m_androidEngine.cancel(m_androidRequestId);
         }
+#ifdef Q_OS_IOS
+        if (m_iosReply) {
+            m_iosReply->abort();
+            m_iosReply = nullptr;
+        }
+#endif
         finishWithError(QStringLiteral("timeout"), QStringLiteral("解析超时，请检查网络后重试"));
     });
 }
@@ -139,15 +157,25 @@ void MediaInspector::setYtDlpPath(const QString &path)
 
 void MediaInspector::inspect(const QString &url)
 {
+#ifndef Q_OS_IOS
     if (m_process.state() != QProcess::NotRunning) {
         m_inspecting = false;
         m_process.kill();
         m_process.waitForFinished(500);
     }
+#endif
     if (!m_androidRequestId.isEmpty()) {
         m_androidEngine.cancel(m_androidRequestId);
         m_androidRequestId.clear();
     }
+#ifdef Q_OS_IOS
+    if (m_iosReply) {
+        m_iosReply->disconnect(this);
+        m_iosReply->abort();
+        m_iosReply->deleteLater();
+        m_iosReply = nullptr;
+    }
+#endif
 
     m_timeout.stop();
     m_standardOutput.clear();
@@ -182,6 +210,17 @@ void MediaInspector::inspect(const QString &url)
     }
 #endif
 
+#ifdef Q_OS_IOS
+    if (parsedUrl.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) != 0) {
+        finishWithError(QStringLiteral("https-required"),
+                        QStringLiteral("iOS 版仅支持 HTTPS 直接媒体链接"));
+        return;
+    }
+    inspectIosDirectMedia(parsedUrl);
+    return;
+#endif
+
+#ifndef Q_OS_IOS
     if (m_ytDlpPath.trimmed().isEmpty()) {
         finishWithError(QStringLiteral("tool-missing"), QStringLiteral("yt-dlp 不可用，请先在工具诊断中完成配置"));
         return;
@@ -204,19 +243,30 @@ void MediaInspector::inspect(const QString &url)
     m_process.setProcessChannelMode(QProcess::SeparateChannels);
     m_process.start();
     m_timeout.start();
+#endif
 }
 
 void MediaInspector::clear()
 {
+#ifndef Q_OS_IOS
     if (m_process.state() != QProcess::NotRunning) {
         m_inspecting = false;
         m_process.kill();
         m_process.waitForFinished(500);
     }
+#endif
     if (!m_androidRequestId.isEmpty()) {
         m_androidEngine.cancel(m_androidRequestId);
         m_androidRequestId.clear();
     }
+#ifdef Q_OS_IOS
+    if (m_iosReply) {
+        m_iosReply->disconnect(this);
+        m_iosReply->abort();
+        m_iosReply->deleteLater();
+        m_iosReply = nullptr;
+    }
+#endif
     m_timeout.stop();
     m_sourceUrl.clear();
     m_errorCode.clear();
@@ -226,6 +276,7 @@ void MediaInspector::clear()
     emit stateChanged();
 }
 
+#ifndef Q_OS_IOS
 void MediaInspector::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     if (!m_inspecting) {
@@ -259,6 +310,7 @@ void MediaInspector::handleProcessError(QProcess::ProcessError error)
         finishWithError(QStringLiteral("tool-error"), QStringLiteral("yt-dlp 进程错误：%1").arg(m_process.errorString()));
     }
 }
+#endif
 
 void MediaInspector::handleAndroidInspectionFinished(const QString &requestId,
                                                       bool success,
@@ -279,6 +331,92 @@ void MediaInspector::handleAndroidInspectionFinished(const QString &requestId,
 
     parseMetadata(payload);
 }
+
+#ifdef Q_OS_IOS
+void MediaInspector::inspectIosDirectMedia(const QUrl &url)
+{
+    m_state = QStringLiteral("inspecting");
+    m_inspecting = true;
+    emit stateChanged();
+
+    QNetworkRequest request(url);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setRawHeader("Range", "bytes=0-0");
+    QNetworkReply *reply = m_iosNetwork.get(request);
+    m_iosReply = reply;
+
+    const auto finish = [this, reply] {
+        finishIosDirectInspection(reply);
+    };
+    connect(reply, &QNetworkReply::metaDataChanged, this, finish);
+    connect(reply, &QNetworkReply::finished, this, finish);
+    m_timeout.start();
+}
+
+void MediaInspector::finishIosDirectInspection(QNetworkReply *reply)
+{
+    if (!m_inspecting || reply != m_iosReply) {
+        return;
+    }
+
+    const auto closeReply = [this, reply] {
+        m_iosReply = nullptr;
+        reply->abort();
+        reply->deleteLater();
+    };
+    const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (statusCode >= 400 || reply->error() != QNetworkReply::NoError) {
+        const QString message = statusCode >= 400
+            ? QStringLiteral("服务器返回 HTTP %1").arg(statusCode)
+            : reply->errorString();
+        closeReply();
+        finishWithError(QStringLiteral("direct-link-unavailable"),
+                        QStringLiteral("无法访问该媒体链接：%1").arg(message));
+        return;
+    }
+
+    const QString contentType = reply->header(QNetworkRequest::ContentTypeHeader)
+        .toString().toLower();
+    const QString suffix = QFileInfo(reply->url().path()).suffix().toLower();
+    const QStringList mediaSuffixes {
+        QStringLiteral("mp4"), QStringLiteral("mov"), QStringLiteral("m4v"),
+        QStringLiteral("webm"), QStringLiteral("mp3"), QStringLiteral("m4a"),
+        QStringLiteral("aac"), QStringLiteral("wav")
+    };
+    if (!contentType.startsWith(QStringLiteral("video/"))
+        && !contentType.startsWith(QStringLiteral("audio/"))
+        && !mediaSuffixes.contains(suffix)) {
+        closeReply();
+        finishWithError(QStringLiteral("direct-link-required"),
+                        QStringLiteral("iOS 版仅支持可直接访问的音视频文件链接"));
+        return;
+    }
+
+    const QString fileName = QFileInfo(reply->url().path()).completeBaseName();
+    m_title = fileName.isEmpty() ? reply->url().host() : fileName;
+    m_uploader = reply->url().host();
+    m_duration.clear();
+    m_thumbnailUrl = QUrl();
+    m_formats.clear();
+    m_formatLabels = {QStringLiteral("原始文件")};
+    m_formats.append(QVariantMap {
+        {QStringLiteral("id"), QStringLiteral("direct")},
+        {QStringLiteral("label"), QStringLiteral("原始文件")}
+    });
+    m_selectedFormatId = QStringLiteral("direct");
+    m_inspecting = false;
+    m_hasResult = true;
+    m_state = QStringLiteral("ready");
+    m_errorCode.clear();
+    m_errorMessage.clear();
+    m_timeout.stop();
+    closeReply();
+    emit stateChanged();
+    emit resultChanged();
+    emit selectedFormatChanged();
+}
+#endif
 
 void MediaInspector::finishWithError(const QString &code, const QString &message)
 {

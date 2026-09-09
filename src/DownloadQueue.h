@@ -1,11 +1,21 @@
 #pragma once
 
+#ifndef Q_OS_IOS
 #include <QProcess>
+#endif
 #include <QVariantList>
 #include <QUrl>
 #include <QVector>
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
+
+#ifdef Q_OS_IOS
+#include <QElapsedTimer>
+#include <QFile>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPointer>
+#endif
 
 #include "AndroidDownloadEngine.h"
 #include "PlatformStorage.h"
@@ -81,8 +91,16 @@ private:
     int indexForId(const QString &taskId) const;
     void startNext();
     void startTask(int index);
+    void cancelActiveTask();
+#ifdef Q_OS_IOS
+    void startIosDownload(Task &task);
+    void finishIosDownload();
+    void updateIosDownloadProgress(qint64 received, qint64 total);
+#endif
+#ifndef Q_OS_IOS
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+#endif
     void handleAndroidDownloadProgress(const QString &requestId,
                                        double progress,
                                        const QString &eta,
@@ -108,8 +126,16 @@ private:
     static QString friendlyError(const QString &rawMessage);
     static bool isHttpUrl(const QUrl &url);
 
+#ifndef Q_OS_IOS
     QProcess m_process;
+#endif
     AndroidDownloadEngine m_androidEngine;
+#ifdef Q_OS_IOS
+    QNetworkAccessManager m_iosNetwork;
+    QPointer<QNetworkReply> m_iosReply;
+    QFile m_iosOutputFile;
+    QElapsedTimer m_iosElapsed;
+#endif
     QByteArray m_stdoutBuffer;
     QByteArray m_stderrBuffer;
     QString m_lastErrorText;

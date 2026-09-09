@@ -39,11 +39,11 @@ Item {
         id: scroll
         anchors.fill: parent
         clip: true
-        contentWidth: availableWidth
+        contentWidth: Math.max(availableWidth || 0, 0)
 
         ColumnLayout {
             id: content
-            width: Math.max(scroll.availableWidth - (root.compact ? 32 : Theme.pageGutter * 2), 0)
+            width: Math.max((scroll.availableWidth || 0) - (root.compact ? 32 : Theme.pageGutter * 2), 0)
             x: root.compact ? 16 : Theme.pageGutter
             y: root.compact ? 16 : Theme.pageTop
             spacing: root.compact ? 16 : Theme.pageSpacing
@@ -151,7 +151,13 @@ Item {
                 settings: root.settings
                 compact: root.compact
                 onDownloadRequested: function (format) {
-                    downloads.startDownload(inspector.sourceUrl, inspector.selectedFormatId, format)
+                    if (Qt.platform.os === "ios") {
+                        queue.addTask(inspector.sourceUrl, inspector.selectedFormatId, format)
+                        queue.startAll()
+                        root.openQueue()
+                    } else {
+                        downloads.startDownload(inspector.sourceUrl, inspector.selectedFormatId, format)
+                    }
                 }
                 onQueueRequested: function (format) {
                     queue.addTask(inspector.sourceUrl, inspector.selectedFormatId, format)

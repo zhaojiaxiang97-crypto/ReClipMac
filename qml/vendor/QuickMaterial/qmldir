@@ -1,0 +1,5 @@
+module QuickMaterial
+
+singleton Corner 1.0 Corner.qml
+singleton Metrics 1.0 Metrics.qml
+singleton States 1.0 States.qml

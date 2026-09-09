@@ -30,6 +30,14 @@ source notices and applicable license texts with the AppImage:
 - <https://github.com/KDE/kirigami>
 - <https://github.com/KDE/extra-cmake-modules>
 
+## QuickMaterial
+
+The settings controls embed a source subset of QuickMaterial for its Material
+3 shape, spacing and interaction-state tokens. QuickMaterial is licensed
+under MIT; preserve its license text with release artifacts:
+
+- <https://github.com/Neftedollar/quickmaterial>
+
 ## ReClip
 
 The application source remains licensed under the repository `LICENSE` and `NOTICE` files, copied into the AppImage documentation directory.

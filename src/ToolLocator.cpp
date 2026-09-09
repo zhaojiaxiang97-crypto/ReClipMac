@@ -12,6 +12,7 @@ ToolLocator::ToolLocator(QObject *parent)
     : QObject(parent)
     , m_androidEngine(this)
 {
+#ifndef Q_OS_IOS
     connect(&m_process, &QProcess::finished, this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
                 if (m_currentTool.isEmpty()) {
@@ -58,10 +59,14 @@ ToolLocator::ToolLocator(QObject *parent)
                 }
                 finishCurrent(false, {}, message);
             });
+#endif
 }
 
 bool ToolLocator::ready() const
 {
+#ifdef Q_OS_IOS
+    return true;
+#endif
 #ifdef Q_OS_ANDROID
     if (m_androidEngine.available()) {
         return m_ytDlp.available && m_ffmpeg.available;
@@ -152,11 +157,13 @@ QString ToolLocator::ffprobeStatus() const
 
 void ToolLocator::refresh()
 {
+#ifndef Q_OS_IOS
     if (m_process.state() != QProcess::NotRunning) {
         m_currentTool.clear();
         m_process.kill();
         m_process.waitForFinished(500);
     }
+#endif
 
     m_pendingTools = {
         QStringLiteral("yt-dlp"),
@@ -264,6 +271,14 @@ void ToolLocator::prepareState(const QString &toolName)
     state.version.clear();
     state.available = false;
 
+#ifdef Q_OS_IOS
+    state.path.clear();
+    state.version = QStringLiteral("iOS 原生下载");
+    state.available = true;
+    state.message = QStringLiteral("仅支持 HTTPS 直接媒体链接");
+    return;
+#endif
+
 #ifdef Q_OS_ANDROID
     if (normalizeToolName(toolName) == QStringLiteral("yt-dlp")
         && m_androidEngine.available()) {
@@ -333,7 +348,17 @@ void ToolLocator::prepareState(const QString &toolName)
     state.message = QStringLiteral("未找到 Android 运行时，请将工具放入 %1 或设置自定义路径")
         .arg(PlatformPaths::runtimeDirectory());
 #else
+#ifdef Q_OS_MACOS
+    state.path = QStandardPaths::findExecutable(executableName, {
+        QStringLiteral("/opt/homebrew/bin"),
+        QStringLiteral("/usr/local/bin")
+    });
+    if (state.path.isEmpty()) {
+        state.path = QStandardPaths::findExecutable(executableName);
+    }
+#else
     state.path = QStandardPaths::findExecutable(executableName);
+#endif
     if (state.path.isEmpty()) {
         state.message = QStringLiteral("未在系统 PATH 中找到，请安装工具或指定路径");
     } else {
@@ -344,6 +369,12 @@ void ToolLocator::prepareState(const QString &toolName)
 
 void ToolLocator::detectNext()
 {
+#ifdef Q_OS_IOS
+    m_pendingTools.clear();
+    m_checking = false;
+    emit statusChanged();
+    return;
+#else
     while (!m_pendingTools.isEmpty()) {
         const QString toolName = m_pendingTools.takeFirst();
         ToolState &state = stateFor(toolName);
@@ -379,6 +410,7 @@ void ToolLocator::detectNext()
     m_currentTool.clear();
     m_checking = false;
     emit statusChanged();
+#endif
 }
 
 void ToolLocator::finishCurrent(bool available, const QString &version, const QString &message)

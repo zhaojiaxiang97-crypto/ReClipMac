@@ -1,12 +1,20 @@
 #pragma once
 
+#ifndef Q_OS_IOS
 #include <QProcess>
+#endif
 #include <QUrl>
 #include <QVariantList>
 #include <QStringList>
 #include <QTimer>
 #include <QObject>
 #include <QtQml/qqmlregistration.h>
+
+#ifdef Q_OS_IOS
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPointer>
+#endif
 
 #include "AndroidDownloadEngine.h"
 
@@ -65,20 +73,32 @@ private:
         double bitrate = 0.0;
     };
 
+#ifndef Q_OS_IOS
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+#endif
     void handleAndroidInspectionFinished(const QString &requestId,
                                          bool success,
                                          const QByteArray &payload,
                                          const QString &errorMessage);
+#ifdef Q_OS_IOS
+    void inspectIosDirectMedia(const QUrl &url);
+    void finishIosDirectInspection(QNetworkReply *reply);
+#endif
     void finishWithError(const QString &code, const QString &message);
     void resetResult();
     void parseMetadata(const QByteArray &output);
     QStringList classifyError(const QString &rawMessage) const;
     static QString formatDuration(double seconds);
 
+#ifndef Q_OS_IOS
     QProcess m_process;
+#endif
     AndroidDownloadEngine m_androidEngine;
+#ifdef Q_OS_IOS
+    QNetworkAccessManager m_iosNetwork;
+    QPointer<QNetworkReply> m_iosReply;
+#endif
     QTimer m_timeout;
     QByteArray m_standardOutput;
     QByteArray m_standardError;
