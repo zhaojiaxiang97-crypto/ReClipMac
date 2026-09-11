@@ -2,8 +2,15 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
+#include <QTemporaryDir>
 #include <QVariantMap>
+#include <QUrl>
 
 namespace {
 
@@ -74,6 +81,72 @@ int main(int argc, char *argv[])
             || task.value(QStringLiteral("canRetry")) != true
             || task.value(QStringLiteral("statusText")) != QStringLiteral("应用关闭时中断，可重试")) {
             return 6;
+        }
+    }
+
+    settings.setValue(
+        QStringLiteral("downloads/queue"),
+        QByteArray("[{\"id\":\"legacy-task\",\"sourceUrl\":\"https://example.com/legacy\","
+                   "\"title\":\"legacy\",\"format\":\"mp4\",\"state\":\"failed\","
+                   "\"statusText\":\"????\",\"errorMessage\":\"???????????????\"}]"));
+    settings.sync();
+    {
+        DownloadQueue migrated;
+        const QVariantMap task = taskAt(migrated, 0);
+        if (migrated.tasks().size() != 1
+            || task.value(QStringLiteral("statusText")) != QStringLiteral("下载失败")
+            || task.value(QStringLiteral("errorMessage"))
+                != QStringLiteral("上次下载失败，请检查媒体链接和网络连接后重试")) {
+            return 7;
+        }
+
+        DownloadQueue migratedAgain;
+        const QVariantMap persistedTask = taskAt(migratedAgain, 0);
+        if (persistedTask.value(QStringLiteral("statusText")) != QStringLiteral("下载失败")
+            || persistedTask.value(QStringLiteral("errorMessage"))
+                != QStringLiteral("上次下载失败，请检查媒体链接和网络连接后重试")) {
+            return 8;
+        }
+    }
+
+    QTemporaryDir taskFiles;
+    if (!taskFiles.isValid()) {
+        return 9;
+    }
+    const QString outputPath = taskFiles.filePath(QStringLiteral("download.mp4"));
+    const QString exportedPath = taskFiles.filePath(QStringLiteral("exported.mp4"));
+    QFile outputFile(outputPath);
+    QFile exportedFile(exportedPath);
+    if (!outputFile.open(QIODevice::WriteOnly)
+        || outputFile.write("video") != 5
+        || !exportedFile.open(QIODevice::WriteOnly)
+        || exportedFile.write("copy") != 4) {
+        return 10;
+    }
+    outputFile.close();
+    exportedFile.close();
+
+    QJsonObject fileTask;
+    fileTask.insert(QStringLiteral("id"), QStringLiteral("file-task"));
+    fileTask.insert(QStringLiteral("sourceUrl"), QStringLiteral("https://example.com/file"));
+    fileTask.insert(QStringLiteral("title"), QStringLiteral("file-task"));
+    fileTask.insert(QStringLiteral("format"), QStringLiteral("mp4"));
+    fileTask.insert(QStringLiteral("state"), QStringLiteral("completed"));
+    fileTask.insert(QStringLiteral("statusText"), QStringLiteral("下载完成"));
+    fileTask.insert(QStringLiteral("outputPath"), outputPath);
+    fileTask.insert(QStringLiteral("exportedUri"), QUrl::fromLocalFile(exportedPath).toString());
+    QJsonArray fileTasks;
+    fileTasks.append(fileTask);
+    settings.setValue(QStringLiteral("downloads/queue"),
+                      QJsonDocument(fileTasks).toJson(QJsonDocument::Compact));
+    settings.sync();
+    {
+        DownloadQueue fileQueue;
+        fileQueue.removeTask(QStringLiteral("file-task"));
+        if (!fileQueue.tasks().isEmpty()
+            || QFileInfo::exists(outputPath)
+            || QFileInfo::exists(exportedPath)) {
+            return 11;
         }
     }
 

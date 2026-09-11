@@ -40,13 +40,11 @@ Item {
                 radius: Theme.radiusSmall
                 color: Theme.signalSurface
 
-                Text {
+                IconGlyph {
                     anchors.centerIn: parent
-                    text: "✓"
+                    name: "check"
                     color: Theme.signal
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 18
-                    font.weight: Font.Bold
+                    size: 18
                 }
             }
 
@@ -146,11 +144,11 @@ Item {
                 spacing: 5
                 visible: !previewImage.visible
 
-                Text {
+                IconGlyph {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "◈"
+                    name: "video"
                     color: Theme.subtle
-                    font.pixelSize: 26
+                    size: 26
                 }
 
                 Label {
@@ -293,7 +291,7 @@ Item {
                 Layout.fillWidth: true
                 text: details.iosPlatform ? "下载原始媒体"
                       : (details.settings && details.settings.defaultOutputFormat === "mp3" ? "下载 MP3" : "下载 MP4")
-                iconText: "↓"
+                iconName: "download"
                 variant: "primary"
                 onClicked: details.downloadRequested(details.iosPlatform ? "mp4"
                                                       : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
@@ -302,7 +300,7 @@ Item {
             AppButton {
                 visible: !details.compact
                 text: "加入队列"
-                iconText: "+"
+                iconName: "queue"
                 variant: "secondary"
                 onClicked: details.queueRequested(details.iosPlatform ? "mp4"
                                                     : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
@@ -313,7 +311,7 @@ Item {
             visible: details.compact
             Layout.fillWidth: true
             text: "加入下载队列"
-            iconText: "+"
+            iconName: "queue"
             variant: "secondary"
             onClicked: details.queueRequested(details.iosPlatform ? "mp4"
                                                 : (details.settings ? details.settings.defaultOutputFormat : "mp4"))

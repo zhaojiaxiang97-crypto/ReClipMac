@@ -26,7 +26,6 @@ Item {
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    visible: !root.compact
                     spacing: 4
 
                     Label {
@@ -48,7 +47,7 @@ Item {
                 AppButton {
                     visible: queue && queue.tasks.length > 0
                     text: root.compact ? "全部开始" : "开始全部"
-                    iconText: "▶"
+                    iconName: "play"
                     variant: "primary"
                     compact: root.compact
                     enabled: !queue.running

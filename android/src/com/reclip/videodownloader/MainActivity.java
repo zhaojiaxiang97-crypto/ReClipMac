@@ -18,6 +18,7 @@ import androidx.core.content.FileProvider;
 import org.qtproject.qt.android.bindings.QtActivity;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -227,6 +228,36 @@ public class MainActivity extends QtActivity {
             }
             reportExportFinished(requestId, success, result == null ? "文件导出失败" : result);
         });
+    }
+
+    public static boolean deleteExportedFile(String exportedUri) {
+        if (TextUtils.isEmpty(exportedUri)) {
+            return true;
+        }
+
+        final MainActivity activity = currentActivity;
+        if (activity == null) {
+            return false;
+        }
+
+        try {
+            Uri uri = Uri.parse(exportedUri);
+            if ("content".equalsIgnoreCase(uri.getScheme())) {
+                try {
+                    return DocumentsContract.deleteDocument(activity.getContentResolver(), uri);
+                } catch (FileNotFoundException exception) {
+                    // The file is already gone, so the requested end state is met.
+                    return true;
+                }
+            }
+            if ("file".equalsIgnoreCase(uri.getScheme())) {
+                File file = new File(uri.getPath());
+                return !file.exists() || file.delete();
+            }
+        } catch (Exception exception) {
+            Log.e(TAG, "Unable to delete exported file: " + exportedUri, exception);
+        }
+        return false;
     }
 
     public static void openFile(String sourcePath, String exportedUri, String mimeType) {

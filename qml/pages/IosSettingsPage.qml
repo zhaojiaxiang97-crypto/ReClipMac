@@ -65,12 +65,11 @@ Item {
                             radius: 14
                             color: Theme.signalSurface
 
-                            Text {
+                            IconGlyph {
                                 anchors.centerIn: parent
-                                text: "✓"
+                                name: "check"
                                 color: Theme.signal
-                                font.pixelSize: 16
-                                font.weight: Font.Bold
+                                size: 16
                             }
                         }
 
@@ -116,55 +115,6 @@ Item {
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: policyColumn.implicitHeight + 28
-                radius: Theme.radiusPanel
-                color: Theme.surface
-                border.width: 1
-                border.color: Theme.border
-
-                ColumnLayout {
-                    id: policyColumn
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 7
-
-                    Label {
-                        text: "下载方式"
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 15
-                        font.weight: Font.DemiBold
-                    }
-
-                    Label {
-                        Layout.fillWidth: true
-                        text: "仅处理 HTTPS 直接音视频链接，保留原始格式。"
-                        color: Theme.muted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                    }
-                }
-            }
-
-            InlineNotice {
-                Layout.fillWidth: true
-                tone: "info"
-                title: "仅保存你有权保存的非 DRM 内容"
-                body: "网页解析、转码和受保护内容不在 iOS 版本范围内。"
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: root.controller ? "Video Downloader  ·  " + root.controller.qtVersion : "Video Downloader"
-                color: Theme.subtle
-                font.family: Theme.monoFamily
-                font.pixelSize: 11
-                horizontalAlignment: Text.AlignHCenter
-                bottomPadding: 12
-            }
         }
     }
 }

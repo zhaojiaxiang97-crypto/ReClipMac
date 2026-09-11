@@ -34,6 +34,8 @@ public:
     Q_INVOKABLE void shareFile(const QString &sourcePath,
                                const QString &exportedUri,
                                const QString &mimeType);
+    Q_INVOKABLE bool removeFile(const QString &sourcePath,
+                                const QString &exportedUri);
     Q_INVOKABLE void openDirectory(const QString &directoryUri);
     Q_INVOKABLE void clearError();
 

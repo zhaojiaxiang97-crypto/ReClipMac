@@ -41,6 +41,16 @@ under MIT; preserve its license text with release artifacts:
 
 - <https://github.com/Neftedollar/quickmaterial>
 
+## Ant Design Icons
+
+The shared QML icon renderer uses path data adapted from the Ant Design Icons
+project maintained by the Ant Group / Alibaba design ecosystem. The icon set
+is distributed under the MIT License; preserve the upstream notice with
+release artifacts:
+
+- <https://github.com/ant-design/ant-design-icons>
+- <https://github.com/ant-design/ant-design-icons/blob/master/LICENSE>
+
 ## ReClip
 
 The application source remains licensed under the repository `LICENSE` and `NOTICE` files, which are copied into the package `licenses` directory.

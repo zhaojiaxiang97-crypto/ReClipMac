@@ -50,7 +50,6 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                visible: !root.compact
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -75,7 +74,7 @@ Item {
                 AppButton {
                     visible: !root.compact
                     text: "查看队列"
-                    iconText: "≡"
+                    iconName: "queue"
                     variant: "ghost"
                     onClicked: root.openQueue()
                 }
@@ -215,16 +214,6 @@ Item {
                 }
             }
 
-            Label {
-                Layout.fillWidth: true
-                text: "仅处理你有权保存的非 DRM 内容。"
-                color: Theme.subtle
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
-                bottomPadding: 12
-            }
         }
     }
 }

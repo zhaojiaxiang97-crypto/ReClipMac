@@ -141,6 +141,7 @@ Item {
             AppButton {
                 visible: !root.compact
                 text: "清空"
+                iconName: "clear"
                 variant: "ghost"
                 compact: true
                 enabled: !root.busy && urlField.text.length > 0
@@ -153,7 +154,7 @@ Item {
             AppButton {
                 Layout.fillWidth: root.compact
                 text: "从剪贴板粘贴"
-                iconText: "▣"
+                iconName: "clipboard"
                 variant: "secondary"
                 compact: false
                 enabled: !root.busy
@@ -163,7 +164,7 @@ Item {
             AppButton {
                 Layout.fillWidth: root.compact
                 text: root.busy ? "正在解析" : "解析媒体"
-                iconText: root.busy ? "◌" : "↓"
+                iconName: root.busy ? "loading" : "scan"
                 variant: "primary"
                 compact: false
                 enabled: !root.busy && urlField.text.trim().length > 0
@@ -236,12 +237,11 @@ Item {
             anchors.centerIn: parent
             spacing: 4
 
-            Text {
+            IconGlyph {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "⌁"
+                name: "link"
                 color: Theme.accent
-                font.pixelSize: 30
-                font.weight: Font.Bold
+                size: 30
             }
 
             Label {

@@ -27,7 +27,7 @@ Rectangle {
             Layout.preferredWidth: 1
             Layout.minimumWidth: 0
             text: "下载工作台"
-            iconText: "download"
+            iconName: "download"
             selected: root.currentPage === "new"
             onClicked: root.navigate("new")
         }
@@ -37,7 +37,7 @@ Rectangle {
             Layout.preferredWidth: 1
             Layout.minimumWidth: 0
             text: "设置"
-            iconText: "settings"
+            iconName: "settings"
             selected: root.currentPage === "settings"
             onClicked: root.navigate("settings")
         }
@@ -46,7 +46,7 @@ Rectangle {
     component NavItem: Button {
         id: item
         property bool selected: false
-        property string iconText: ""
+        property string iconName: "info"
         implicitHeight: 64
         Layout.preferredWidth: 1
         Layout.minimumWidth: 0
@@ -59,7 +59,7 @@ Rectangle {
             anchors.centerIn: parent
 
             IconGlyph {
-                name: item.iconText
+                name: item.iconName
                 color: item.selected ? Theme.accent : Theme.muted
                 size: 22
                 anchors.horizontalCenter: parent.horizontalCenter

@@ -34,6 +34,62 @@ bool hasUsableDownloadStorage(const QString &path)
         && storage.bytesAvailable() >= kMinimumDownloadFreeBytes;
 }
 
+bool isQuestionMarkPlaceholder(const QString &value)
+{
+    const QString trimmed = value.trimmed();
+    if (trimmed.isEmpty()) {
+        return false;
+    }
+
+    return std::all_of(trimmed.cbegin(), trimmed.cend(), [](const QChar character) {
+        return character == QLatin1Char('?');
+    });
+}
+
+bool removeLocalFile(const QString &path)
+{
+    const QString cleaned = path.trimmed();
+    if (cleaned.isEmpty() || !QFileInfo::exists(cleaned)) {
+        return true;
+    }
+
+    return QFile::moveToTrash(cleaned) || QFile::remove(cleaned);
+}
+
+QString readableStatusForState(const QString &state)
+{
+    if (state == QStringLiteral("completed")) {
+        return QStringLiteral("下载完成");
+    }
+    if (state == QStringLiteral("failed")) {
+        return QStringLiteral("下载失败");
+    }
+    if (state == QStringLiteral("cancelled")) {
+        return QStringLiteral("已取消");
+    }
+    if (state == QStringLiteral("interrupted")) {
+        return QStringLiteral("应用关闭时中断，可重试");
+    }
+    if (state == QStringLiteral("downloading")) {
+        return QStringLiteral("下载中");
+    }
+    if (state == QStringLiteral("waiting")) {
+        return QStringLiteral("等待前一项完成");
+    }
+    return QStringLiteral("等待下载");
+}
+
+QString readableErrorForState(const QString &state)
+{
+    if (state == QStringLiteral("failed")) {
+        return QStringLiteral("上次下载失败，请检查媒体链接和网络连接后重试");
+    }
+    if (state == QStringLiteral("interrupted")) {
+        return QStringLiteral("应用关闭时任务尚未完成，请点击重试");
+    }
+    return {};
+}
+
 } // namespace
 
 DownloadQueue::DownloadQueue(QObject *parent)
@@ -874,8 +930,17 @@ void DownloadQueue::cleanupTemporaryFiles(const Task &task)
 void DownloadQueue::moveTaskFilesToTrash(const Task &task)
 {
     cleanupTemporaryFiles(task);
-    if (!task.outputPath.isEmpty() && QFileInfo::exists(task.outputPath)) {
-        QFile::moveToTrash(task.outputPath);
+    if (m_platformStorage) {
+        m_platformStorage->removeFile(task.outputPath, task.exportedUri);
+        return;
+    }
+
+    removeLocalFile(task.outputPath);
+    const QUrl exportedUrl(task.exportedUri);
+    if (exportedUrl.isLocalFile()) {
+        removeLocalFile(exportedUrl.toLocalFile());
+    } else if (exportedUrl.scheme().isEmpty()) {
+        removeLocalFile(task.exportedUri);
     }
 }
 
@@ -950,6 +1015,16 @@ void DownloadQueue::loadPersistedTasks()
             task.statusText = task.state == QStringLiteral("completed")
                 ? QStringLiteral("下载完成")
                 : QStringLiteral("等待下载");
+        }
+
+        // Older builds could persist non-UTF-8 Chinese text as question-mark
+        // placeholders. Migrate those records when they are loaded so they
+        // remain useful instead of exposing the corrupted text in the UI.
+        if (isQuestionMarkPlaceholder(task.statusText)) {
+            task.statusText = readableStatusForState(task.state);
+        }
+        if (isQuestionMarkPlaceholder(task.errorMessage)) {
+            task.errorMessage = readableErrorForState(task.state);
         }
 
         if (task.state == QStringLiteral("completed") && !task.outputPath.isEmpty()

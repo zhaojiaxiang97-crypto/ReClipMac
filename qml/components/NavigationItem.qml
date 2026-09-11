@@ -5,7 +5,7 @@ Button {
     id: root
 
     property bool selected: false
-    property string iconText: ""
+    property string iconName: "info"
 
     implicitHeight: 42
     leftPadding: 11
@@ -18,20 +18,9 @@ Button {
         anchors.verticalCenter: parent.verticalCenter
 
         IconGlyph {
-            visible: root.iconText === "settings"
-            name: "settings"
+            name: root.iconName
             color: root.selected ? Theme.accent : Theme.muted
             size: 20
-            anchors.verticalCenter: parent.verticalCenter
-        }
-
-        Text {
-            visible: root.iconText !== "settings"
-            text: root.iconText
-            color: root.selected ? Theme.accent : Theme.muted
-            font.family: Theme.fontFamily
-            font.pixelSize: 17
-            font.weight: Font.Medium
             anchors.verticalCenter: parent.verticalCenter
         }
 

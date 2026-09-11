@@ -279,11 +279,6 @@ Kirigami.ApplicationWindow {
                             elide: Text.ElideRight
                         }
 
-                    StatusPill {
-                        state: window.toolLocator.checking ? "downloading" : (window.toolLocator.ready ? "completed" : "failed")
-                        label: window.toolLocator.checking ? "检测中" : (window.toolLocator.ready ? "工具已就绪" : "需要处理")
-                        compact: true
-                    }
                 }
             }
 

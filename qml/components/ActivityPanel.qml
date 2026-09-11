@@ -183,7 +183,7 @@ Rectangle {
             Layout.fillWidth: true
             visible: root.hasStartableTasks && !root.queue.running
             text: "开始全部"
-            iconText: "▶"
+            iconName: "play"
             variant: "primary"
             onClicked: root.queue.startAll()
         }

@@ -5,13 +5,18 @@ Button {
     id: root
 
     property string variant: "secondary"
+    property string iconName: ""
+    // Kept for compatibility with out-of-tree QML pages. New pages should
+    // use iconName so the action is rendered as a real vector icon.
     property string iconText: ""
     property bool compact: false
+    property bool iconOnly: false
 
     implicitHeight: compact ? 34 : 40
-    implicitWidth: Math.max(88, contentItem.implicitWidth + leftPadding + rightPadding)
-    leftPadding: compact ? 12 : 16
-    rightPadding: compact ? 12 : 16
+    implicitWidth: root.iconOnly ? (compact ? 34 : 40)
+                                 : Math.max(88, contentItem.implicitWidth + leftPadding + rightPadding)
+    leftPadding: root.iconOnly ? 0 : (compact ? 12 : 16)
+    rightPadding: root.iconOnly ? 0 : (compact ? 12 : 16)
     topPadding: 0
     bottomPadding: 0
     spacing: 8
@@ -22,11 +27,19 @@ Button {
     font.letterSpacing: 0.1
 
     contentItem: Row {
-        spacing: root.iconText.length > 0 ? 8 : 0
+        spacing: root.iconOnly ? 0 : (root.iconName.length > 0 || root.iconText.length > 0 ? 8 : 0)
         anchors.centerIn: parent
 
+        IconGlyph {
+            visible: root.iconName.length > 0
+            name: root.iconName
+            color: root.contentColor
+            anchors.verticalCenter: parent.verticalCenter
+            size: root.compact ? 16 : 18
+        }
+
         Text {
-            visible: root.iconText.length > 0
+            visible: !root.iconOnly && root.iconName.length === 0 && root.iconText.length > 0
             text: root.iconText
             color: root.contentColor
             font.family: Theme.fontFamily
@@ -36,6 +49,7 @@ Button {
         }
 
         Text {
+            visible: !root.iconOnly
             text: root.text
             color: root.contentColor
             font: root.font
@@ -83,4 +97,8 @@ Button {
             border.color: Theme.accent
         }
     }
+
+    ToolTip.visible: root.iconOnly && root.hovered
+    ToolTip.text: root.text
+    ToolTip.delay: 600
 }

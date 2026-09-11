@@ -194,63 +194,6 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 spacing: 0
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 64
-                    color: Theme.surface
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
-                        color: Theme.border
-                    }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 24
-                        anchors.rightMargin: 24
-                        spacing: 14
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Label {
-                                text: window.currentPage === "new" ? "新建下载" : (window.currentPage === "queue" ? "下载队列" : "设置")
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 20
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: 0.2
-                            }
-
-                            Label {
-                                text: window.currentPage === "new" ? "粘贴链接，快速保存媒体"
-                                      : (window.currentPage === "queue" ? window.downloadQueue.statusText : "让下载流程保持顺手")
-                                color: Theme.muted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
-                            }
-                        }
-
-                        StatusPill {
-                            state: window.toolLocator.checking ? "downloading" : (window.toolLocator.ready ? "completed" : "failed")
-                            label: window.toolLocator.checking ? "检测中" : (window.toolLocator.ready ? "工具已就绪" : "需要处理")
-                            compact: true
-                        }
-
-                        Label {
-                            visible: window.currentPage === "new"
-                            text: "Ctrl / ⌘ + Enter 解析"
-                            color: Theme.subtle
-                            font.family: Theme.monoFamily
-                            font.pixelSize: 10
-                        }
-                    }
-                }
-
                 StackLayout {
                     id: desktopPages
                     Layout.fillWidth: true
@@ -318,48 +261,6 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             spacing: 0
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 76
-                color: Theme.background
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 20
-                    anchors.rightMargin: 16
-                    anchors.topMargin: 10
-                    anchors.bottomMargin: 8
-                    spacing: 12
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 1
-
-                        Label {
-                            text: window.currentPage === "new" ? "新建下载"
-                                  : (window.currentPage === "queue" ? "下载队列" : "设置")
-                            color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 26
-                            font.weight: Font.Medium
-                        }
-
-                        Label {
-                            text: window.appController.productName
-                            color: Theme.muted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 11
-                        }
-                    }
-
-                    StatusPill {
-                        state: window.toolLocator.checking ? "downloading" : (window.toolLocator.ready ? "completed" : "failed")
-                        label: window.toolLocator.checking ? "检测中" : (window.toolLocator.ready ? "就绪" : "检查")
-                        compact: true
-                    }
-                }
-            }
 
             StackLayout {
                 id: mobilePages

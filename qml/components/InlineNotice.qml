@@ -29,13 +29,11 @@ Rectangle {
             radius: 14
             color: tone === "danger" ? Theme.coral : (tone === "success" ? Theme.signal : Theme.amber)
 
-            Text {
+            IconGlyph {
                 anchors.centerIn: parent
-                text: tone === "danger" ? "!" : (tone === "success" ? "✓" : "i")
+                name: tone === "danger" ? "error" : (tone === "success" ? "check" : "info")
                 color: "#FFFFFF"
-                font.family: Theme.fontFamily
-                font.pixelSize: 14
-                font.weight: Font.Bold
+                size: 16
             }
         }
 

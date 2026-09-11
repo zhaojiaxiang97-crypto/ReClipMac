@@ -28,7 +28,6 @@ Kirigami.ScrollablePage {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                visible: !root.compact
                 spacing: 2
 
                 Kirigami.Heading {

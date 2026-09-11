@@ -51,7 +51,6 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 4
-                visible: !root.compact
 
                 Label {
                     text: "设置"
@@ -120,7 +119,7 @@ Item {
 
                         AppButton {
                             text: root.compact ? "选择" : "选择目录"
-                            iconText: "□"
+                            iconName: "folder"
                             variant: "secondary"
                             compact: true
                             onClicked: root.openFolderDialog()
@@ -219,7 +218,7 @@ Item {
                         AppButton {
                             Layout.fillWidth: true
                             text: root.platformStorage && root.platformStorage.busy ? "正在处理" : "选择导出目录"
-                            iconText: "□"
+                            iconName: "folder-open"
                             variant: "primary"
                             enabled: root.platformStorage && !root.platformStorage.busy
                             onClicked: root.platformStorage.chooseExportDirectory()
@@ -322,7 +321,7 @@ Item {
                 visible: !root.iosPlatform
                 Layout.alignment: root.compact ? Qt.AlignHCenter : Qt.AlignLeft
                 text: root.tools && root.tools.checking ? "正在检测" : "重新检测工具"
-                iconText: "⟳"
+                iconName: "refresh"
                 variant: "ghost"
                 compact: true
                 enabled: root.tools && !root.tools.checking
@@ -375,35 +374,6 @@ Item {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 2
-
-                Label {
-                    Layout.fillWidth: true
-                    text: root.controller ? "Video Downloader  " + root.controller.qtVersion : ""
-                    color: Theme.subtle
-                    font.family: Theme.monoFamily
-                    font.pixelSize: 11
-                }
-
-                AppButton {
-                    text: "恢复默认设置"
-                    variant: "ghost"
-                    compact: true
-                    onClicked: root.settings.reset()
-                }
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: "仅处理你有权保存的非 DRM 内容。"
-                color: Theme.subtle
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
-                horizontalAlignment: Text.AlignHCenter
-                bottomPadding: 12
-            }
         }
     }
 

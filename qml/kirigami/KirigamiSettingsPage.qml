@@ -39,7 +39,6 @@ Kirigami.ScrollablePage {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: !root.compact
             spacing: 2
 
             Kirigami.Heading {
@@ -107,7 +106,7 @@ Kirigami.ScrollablePage {
 
                     AppButton {
                         text: root.compact ? "选择" : "选择目录"
-                        iconText: "□"
+                        iconName: "folder"
                         variant: "secondary"
                         compact: true
                         onClicked: folderDialog.open()
@@ -129,7 +128,7 @@ Kirigami.ScrollablePage {
                     AppButton {
                         visible: !root.compact
                         text: "保存"
-                        iconText: "✓"
+                        iconName: "check"
                         variant: "primary"
                         compact: true
                         onClicked: {
@@ -144,7 +143,7 @@ Kirigami.ScrollablePage {
                     visible: root.compact
                     Layout.fillWidth: true
                     text: "应用下载目录"
-                    iconText: "✓"
+                    iconName: "check"
                     variant: "primary"
                     onClicked: {
                         if (root.settings) {
@@ -362,32 +361,5 @@ Kirigami.ScrollablePage {
             }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-
-            Label {
-                Layout.fillWidth: true
-                text: root.controller ? "Video Downloader  " + root.controller.qtVersion : ""
-                color: Theme.subtle
-                font.family: Theme.monoFamily
-                font.pixelSize: 11
-            }
-
-            Button {
-                text: "恢复默认设置"
-                icon.name: "edit-undo"
-                onClicked: root.settings.reset()
-            }
-        }
-
-        Label {
-            Layout.fillWidth: true
-            text: "仅处理你有权保存的非 DRM 内容。"
-            color: Theme.subtle
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            horizontalAlignment: Text.AlignHCenter
-            bottomPadding: Kirigami.Units.smallSpacing
-        }
     }
 }

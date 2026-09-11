@@ -50,7 +50,6 @@ Kirigami.ScrollablePage {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: !root.compact
             spacing: 2
 
             Kirigami.Heading {
@@ -166,15 +165,5 @@ Kirigami.ScrollablePage {
             queue: root.queue
         }
 
-        Label {
-            Layout.fillWidth: true
-            text: "仅处理你有权保存的非 DRM 内容。"
-            color: Theme.subtle
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.Wrap
-            bottomPadding: Kirigami.Units.smallSpacing
-        }
     }
 }

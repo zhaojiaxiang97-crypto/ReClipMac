@@ -17,6 +17,16 @@
 #endif
 
 namespace {
+bool removeLocalFile(const QString &path)
+{
+    const QString cleaned = path.trimmed();
+    if (cleaned.isEmpty() || !QFileInfo::exists(cleaned)) {
+        return true;
+    }
+
+    return QFile::moveToTrash(cleaned) || QFile::remove(cleaned);
+}
+
 #ifdef Q_OS_ANDROID
 PlatformStorage *g_platformStorage = nullptr;
 
@@ -286,6 +296,48 @@ void PlatformStorage::shareFile(const QString &sourcePath,
     Q_UNUSED(mimeType)
     reportError(QStringLiteral("桌面端暂未接入系统分享面板"));
 #endif
+}
+
+bool PlatformStorage::removeFile(const QString &sourcePath, const QString &exportedUri)
+{
+    bool removed = true;
+    const QString localPath = sourcePath.trimmed();
+    if (!localPath.isEmpty()) {
+        removed = removeLocalFile(localPath + QStringLiteral(".part")) && removed;
+        removed = removeLocalFile(localPath + QStringLiteral(".ytdl")) && removed;
+        removed = removeLocalFile(localPath) && removed;
+    }
+
+    const QString exported = exportedUri.trimmed();
+    if (!exported.isEmpty()) {
+#ifdef Q_OS_ANDROID
+        if (exported.startsWith(QStringLiteral("content://"))) {
+            const QJniObject uriObject = QJniObject::fromString(exported);
+            const jboolean deleted = QJniObject::callStaticMethod<jboolean>(
+                "com/reclip/videodownloader/MainActivity",
+                "deleteExportedFile",
+                "(Ljava/lang/String;)Z",
+                uriObject.object<jstring>());
+            removed = static_cast<bool>(deleted) && removed;
+        } else
+#endif
+        {
+            const QUrl url(exported);
+            const QString exportedPath = url.isLocalFile()
+                ? url.toLocalFile()
+                : (url.scheme().isEmpty() ? exported : QString());
+            if (exportedPath.isEmpty()) {
+                removed = false;
+            } else {
+                removed = removeLocalFile(exportedPath) && removed;
+            }
+        }
+    }
+
+    if (!removed) {
+        reportError(QStringLiteral("无法完全删除下载文件，请检查文件权限"));
+    }
+    return removed;
 }
 
 void PlatformStorage::openDirectory(const QString &directoryUri)

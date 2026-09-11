@@ -131,7 +131,7 @@ Item {
             AppButton {
                 visible: root.downloads && root.downloads.state === "completed"
                 text: "打开文件"
-                iconText: "↗"
+                iconName: "open"
                 variant: "primary"
                 compact: true
                 onClicked: root.downloads.openOutput()
@@ -140,7 +140,7 @@ Item {
             AppButton {
                 visible: root.downloads && root.downloads.state === "completed" && Qt.platform.os === "android"
                 text: "分享"
-                iconText: "↑"
+                iconName: "share"
                 variant: "secondary"
                 compact: true
                 onClicked: root.downloads.shareOutput()
@@ -148,6 +148,7 @@ Item {
 
             AppButton {
                 text: "打开下载目录"
+                iconName: "folder-open"
                 variant: "ghost"
                 compact: true
                 onClicked: root.downloads.openDownloadDirectory()

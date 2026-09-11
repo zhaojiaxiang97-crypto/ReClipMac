@@ -39,13 +39,11 @@ Rectangle {
                 radius: Theme.radiusControl
                 color: Theme.accent
 
-                Text {
+                IconGlyph {
                     anchors.centerIn: parent
-                    text: "↓"
+                    name: "download"
                     color: Theme.accentText
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 21
-                    font.weight: Font.Bold
+                    size: 22
                 }
             }
 
@@ -84,7 +82,7 @@ Rectangle {
         NavigationItem {
             Layout.fillWidth: true
             text: "下载工作台"
-            iconText: "+"
+            iconName: "download"
             selected: root.currentPage === "new"
             onClicked: root.navigate("new")
         }
@@ -92,7 +90,7 @@ Rectangle {
         NavigationItem {
             Layout.fillWidth: true
             text: "设置"
-            iconText: "settings"
+            iconName: "settings"
             selected: root.currentPage === "settings"
             onClicked: root.navigate("settings")
         }
@@ -151,13 +149,5 @@ Rectangle {
             }
         }
 
-        Label {
-            Layout.fillWidth: true
-            text: "LOCAL MEDIA  ·  0.1"
-            color: Theme.subtle
-            font.family: Theme.monoFamily
-            font.pixelSize: 10
-            topPadding: 8
-        }
     }
 }

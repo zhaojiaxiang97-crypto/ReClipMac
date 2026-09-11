@@ -17,9 +17,94 @@ Item {
     readonly property string taskId: task && task.id ? task.id : ""
     readonly property string taskState: task && task.state ? task.state : "queued"
     readonly property string taskTitle: task && task.title ? task.title : (task && task.sourceUrl ? task.sourceUrl : "未命名任务")
+    readonly property string taskStatus: {
+        var value = task && task.statusText ? task.statusText.trim() : ""
+        if (/^\?+$/.test(value)) {
+            if (root.taskState === "completed") return "下载完成"
+            if (root.taskState === "failed") return "下载失败"
+            if (root.taskState === "cancelled") return "已取消"
+            if (root.taskState === "interrupted") return "应用关闭时中断，可重试"
+            if (root.taskState === "downloading") return "下载中"
+            if (root.taskState === "waiting") return "等待前一项完成"
+            return "等待下载"
+        }
+        return value || "等待下载"
+    }
+    readonly property string taskError: {
+        var value = task && task.errorMessage ? task.errorMessage.trim() : ""
+        if (/^\?+$/.test(value)) {
+            return root.taskState === "interrupted"
+                    ? "应用关闭时任务尚未完成，请点击重试"
+                    : "上次下载失败，请检查媒体链接和网络连接后重试"
+        }
+        return value
+    }
+    readonly property string taskIconName: {
+        if (root.taskState === "completed") return "check"
+        if (root.taskState === "failed") return "error"
+        if (root.taskState === "interrupted") return "refresh"
+        if (root.taskState === "cancelled") return "clear"
+        if (root.taskState === "downloading") return "loading"
+        if (root.taskState === "queued" || root.taskState === "waiting") return "queue"
+        return "info"
+    }
     readonly property color taskColor: Theme.stateColor(taskState)
 
     implicitHeight: rowColumn.implicitHeight + (compact ? 20 : 28)
+
+    Dialog {
+        id: removeDialog
+        modal: true
+        title: "删除下载任务"
+        width: Math.min(420, Math.max(280, root.width - 32))
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            Label {
+                Layout.fillWidth: true
+                text: "确定删除“%1”吗？".arg(root.taskTitle)
+                color: Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: 15
+                font.weight: Font.DemiBold
+                wrapMode: Text.Wrap
+            }
+
+            Label {
+                Layout.fillWidth: true
+                text: "任务记录和已生成的本地文件都会被移除。"
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                wrapMode: Text.Wrap
+            }
+        }
+
+        footer: RowLayout {
+            width: parent ? parent.width : 0
+            spacing: 8
+
+            Item { Layout.fillWidth: true }
+
+            AppButton {
+                text: "取消"
+                variant: "ghost"
+                compact: true
+                onClicked: removeDialog.reject()
+            }
+
+            AppButton {
+                text: "删除"
+                iconName: "trash"
+                variant: "danger"
+                compact: true
+                onClicked: removeDialog.accept()
+            }
+        }
+
+        onAccepted: root.removeClicked(root.taskId)
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -47,13 +132,11 @@ Item {
                 radius: width / 2
                 color: Theme.stateSurface(root.taskState)
 
-                Text {
+                IconGlyph {
                     anchors.centerIn: parent
-                    text: root.taskState === "completed" ? "✓" : (root.taskState === "failed" ? "!" : (root.taskState === "interrupted" ? "↻" : "•"))
+                    name: root.taskIconName
                     color: root.taskColor
-                    font.family: Theme.fontFamily
-                    font.pixelSize: compact ? 13 : 15
-                    font.weight: Font.Bold
+                    size: compact ? 16 : 18
                 }
             }
 
@@ -73,7 +156,7 @@ Item {
 
                 Label {
                     Layout.fillWidth: true
-                    text: (task.format || "MP4") + "  ·  " + (task.statusText || "等待下载")
+                    text: (task.format || "MP4") + "  ·  " + root.taskStatus
                     color: Theme.muted
                     font.family: Theme.fontFamily
                     font.pixelSize: compact ? 11 : 12
@@ -84,7 +167,7 @@ Item {
             StatusPill {
                 visible: !root.compact
                 state: root.taskState
-                label: task.statusText || "等待下载"
+                label: root.taskStatus
                 compact: true
             }
         }
@@ -147,7 +230,7 @@ Item {
             AppButton {
                 visible: root.taskState === "completed"
                 text: compact ? "打开" : "打开文件"
-                iconText: "↗"
+                iconName: "open"
                 variant: "secondary"
                 compact: true
                 onClicked: root.openClicked(root.taskId)
@@ -156,25 +239,27 @@ Item {
             AppButton {
                 visible: root.taskState === "completed" && Qt.platform.os === "android"
                 text: "分享"
-                iconText: "↑"
+                iconName: "share"
                 variant: "secondary"
                 compact: true
                 onClicked: root.shareClicked(root.taskId)
             }
 
             AppButton {
-                visible: !compact
+                enabled: root.taskId.length > 0
                 text: "删除"
+                iconName: "trash"
+                iconOnly: root.compact
                 variant: "ghost"
                 compact: true
-                onClicked: root.removeClicked(root.taskId)
+                onClicked: removeDialog.open()
             }
         }
 
         Label {
-            visible: (root.taskState === "failed" || root.taskState === "interrupted") && task.errorMessage
+            visible: (root.taskState === "failed" || root.taskState === "interrupted") && root.taskError
             Layout.fillWidth: true
-            text: task.errorMessage || "下载未完成"
+            text: root.taskError || "下载未完成"
             color: Theme.danger
             font.family: Theme.fontFamily
             font.pixelSize: 12
