@@ -42,15 +42,27 @@ Rectangle {
     implicitHeight: root.hasTasks
                     ? Math.min(480, 104 + root.taskCount * 132 + (root.hasStartableTasks ? 48 : 0))
                     : 174
-    color: Theme.surface
-    radius: Theme.radiusPanel
-    border.width: 1
+    color: root.compact ? Theme.surface : "transparent"
+    radius: root.compact ? Theme.radiusPanel : 0
+    border.width: root.compact ? 1 : 0
     border.color: Theme.border
+
+    Rectangle {
+        visible: !root.compact
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        width: 1
+        color: Theme.border
+    }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 10
+        anchors.topMargin: root.compact ? 16 : 24
+        anchors.rightMargin: root.compact ? 16 : 18
+        anchors.bottomMargin: root.compact ? 16 : 18
+        anchors.leftMargin: root.compact ? 16 : 24
+        spacing: 12
 
         RowLayout {
             Layout.fillWidth: true
@@ -60,18 +72,18 @@ Rectangle {
                 spacing: 2
 
                 Label {
-                    text: "传输队列"
+                    text: "活动"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 16
+                    font.pixelSize: root.compact ? 16 : 20
                     font.weight: Font.DemiBold
                 }
 
                 Label {
-                    text: root.hasTasks ? "队列中有 %1 个任务".arg(root.taskCount) : "队列为空"
+                    text: root.hasTasks ? "%1 个任务".arg(root.taskCount) : "暂无任务"
                     color: Theme.muted
                     font.family: Theme.fontFamily
-                    font.pixelSize: 11
+                    font.pixelSize: root.compact ? 11 : 12
                 }
             }
 
@@ -136,7 +148,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: root.hasTasks
             clip: true
-            spacing: 10
+            spacing: 12
             model: root.queue ? root.queue.tasks : []
 
             delegate: DownloadRow {

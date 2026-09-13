@@ -95,18 +95,18 @@ readonly property string fontFamily: Qt.platform.os === "windows" ? "Microsoft Y
     readonly property color violetSurface: darkMode ? "#342D2F" : primaryBlueSoft
     readonly property color signalSurface: darkMode ? "#263522" : "#E9F7EF"
 
-    readonly property int radiusAction: darkMode ? radiusPill : 10
+    readonly property int radiusAction: darkMode ? radiusPill : 8
     readonly property int radiusInput: darkMode ? 16 : 12
-    readonly property int radiusControl: darkMode ? 12 : 10
-    readonly property int radiusPanel: darkMode ? 20 : 16
-    readonly property int radiusSmall: darkMode ? 8 : 8
+    readonly property int radiusControl: darkMode ? 12 : 8
+    readonly property int radiusPanel: darkMode ? 20 : 12
+    readonly property int radiusSmall: darkMode ? 8 : 6
     readonly property int radiusPill: 999
     readonly property int radiusSelection: darkMode ? radiusPill : 10
     readonly property int touchTarget: 44
     readonly property int sidebarWidth: darkMode ? 224 : 232
-    readonly property int pageGutter: darkMode ? 16 : 28
+    readonly property int pageGutter: darkMode ? 16 : 24
     readonly property int pageTop: darkMode ? 16 : 24
-    readonly property int pageSpacing: darkMode ? 16 : 18
+    readonly property int pageSpacing: darkMode ? 16 : 20
 
     function stateColor(state) {
         if (state === "completed" || state === "ready") {

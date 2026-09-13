@@ -141,6 +141,24 @@ failure reporting, but a real media download cannot be accepted as complete.
   targets were run again successfully. This confirms the Android-only JNI
   implementation remains isolated from the desktop backend.
 
+### Structured result and cancellation contract (2026-09-12)
+
+- The JNI callbacks now use the same terminal shape as the desktop resolver:
+  request id, success flag, JSON payload, error code and human-readable error.
+  A successful Android download payload contains `path`, `bytes`, `format` and
+  `backend`, so the Qt side no longer receives a bare path with no provenance.
+- Inspection and download requests are registered before their executor task is
+  submitted. Cancellation marks the request first, cancels the underlying
+  yt-dlp future when available, and lets the worker send the terminal callback
+  after the embedded yt-dlp/FFmpeg stage has left its worker. This avoids
+  reporting cancellation before cleanup has started; device-level timing proof
+  for the Python call itself is still pending.
+- The arm64-v8a protocol test APK was rebuilt with the verified yt-dlp and
+  FFmpegKit artefacts. A subsequent install attempt on the Xiaomi device was
+  blocked by its USB-install confirmation (`INSTALL_FAILED_USER_RESTRICTED`),
+  so this protocol change is build-verified but not counted as a new device
+  feature result.
+
 ### Public MP4 success smoke test (2026-09-06)
 
 - Test URL: `https://assets.testfiles.dev/video/sample-3s.mp4`, a small public

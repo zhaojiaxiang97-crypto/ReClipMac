@@ -21,22 +21,23 @@ Item {
         radius: Theme.radiusPanel
         color: Theme.surface
         border.width: 1
-        border.color: Theme.successBorder
+        border.color: Theme.border
     }
 
     ColumnLayout {
         id: previewColumn
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 16
+        anchors.margins: root.compact ? 16 : 24
+        spacing: root.compact ? 12 : 14
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: root.compact ? 10 : 0
 
             Rectangle {
-                Layout.preferredWidth: 32
-                Layout.preferredHeight: 32
+                visible: root.compact
+                Layout.preferredWidth: visible ? 32 : 0
+                Layout.preferredHeight: visible ? 32 : 0
                 radius: Theme.radiusSmall
                 color: Theme.signalSurface
 
@@ -53,14 +54,17 @@ Item {
                 spacing: 2
 
                 Label {
-                    text: root.iosPlatform ? "原始媒体已准备好" : "媒体已准备好"
-                    color: Theme.signal
+                    text: root.compact
+                          ? (root.iosPlatform ? "原始媒体已准备好" : "媒体已准备好")
+                          : "媒体预览"
+                    color: root.compact ? Theme.signal : Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 15
+                    font.pixelSize: root.compact ? 15 : 17
                     font.weight: Font.DemiBold
                 }
 
                 Label {
+                    visible: root.compact
                     text: root.iosPlatform ? "iOS 将保留原始格式，不做转码" : "确认输出格式后开始下载"
                     color: Theme.muted
                     font.family: Theme.fontFamily
@@ -70,7 +74,7 @@ Item {
 
             StatusPill {
                 state: "ready"
-                label: "可下载"
+                label: root.compact ? "可下载" : "已解析"
                 compact: true
             }
         }
@@ -78,11 +82,11 @@ Item {
         RowLayout {
             visible: !root.compact
             Layout.fillWidth: true
-            spacing: 20
+            spacing: 24
 
             Thumbnail {
-                Layout.preferredWidth: 280
-                Layout.preferredHeight: 158
+                Layout.preferredWidth: 260
+                Layout.preferredHeight: 146
                 inspector: root.inspector
             }
 
@@ -97,19 +101,21 @@ Item {
             }
         }
 
-        ColumnLayout {
+        RowLayout {
             visible: root.compact
             Layout.fillWidth: true
-            spacing: 14
+            spacing: 12
 
             Thumbnail {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.max(150, Math.min(210, root.width * 0.52))
+                Layout.preferredWidth: Math.max(112, Math.min(128, root.width * 0.30))
+                Layout.preferredHeight: 150
+                Layout.alignment: Qt.AlignTop
                 inspector: root.inspector
             }
 
             Details {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignTop
                 inspector: root.inspector
                 settings: root.settings
                 compact: true
@@ -170,17 +176,17 @@ Item {
         signal downloadRequested(string format)
         signal queueRequested(string format)
 
-        spacing: 8
+        spacing: details.compact ? 6 : 8
 
         Label {
             Layout.fillWidth: true
             text: details.inspector ? details.inspector.title : ""
             color: Theme.text
             font.family: Theme.fontFamily
-            font.pixelSize: details.compact ? 18 : 19
+            font.pixelSize: details.compact ? 16 : 21
             font.weight: Font.DemiBold
             wrapMode: Text.Wrap
-            maximumLineCount: 3
+            maximumLineCount: details.compact ? 2 : 3
             elide: Text.ElideRight
         }
 
@@ -191,7 +197,7 @@ Item {
                   : "作者  未知"
             color: Theme.muted
             font.family: Theme.fontFamily
-            font.pixelSize: 13
+            font.pixelSize: details.compact ? 12 : 13
             elide: Text.ElideRight
         }
 
@@ -202,7 +208,7 @@ Item {
                   : "时长  未知"
             color: Theme.muted
             font.family: Theme.fontFamily
-            font.pixelSize: 13
+            font.pixelSize: details.compact ? 12 : 13
         }
 
         Item { Layout.preferredHeight: 3 }
@@ -216,69 +222,73 @@ Item {
             font.pixelSize: 13
         }
 
-        ComboBox {
-            id: formatCombo
-            visible: !details.iosPlatform
+        GridLayout {
+            id: formatGrid
             Layout.fillWidth: true
-            model: ["MP4 视频", "MP3 音频"]
-            currentIndex: details.settings && details.settings.defaultOutputFormat === "mp3" ? 1 : 0
-            font.family: Theme.fontFamily
-            font.pixelSize: 13
+            columns: 2
+            columnSpacing: 8
+            rowSpacing: 8
 
-            contentItem: Text {
-                leftPadding: 13
-                rightPadding: 36
-                text: formatCombo.displayText
-                color: Theme.text
-                font: formatCombo.font
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
+            ColumnLayout {
+                id: formatField
+                visible: !details.iosPlatform
+                Layout.fillWidth: true
+                Layout.columnSpan: qualityCombo.visible ? 1 : 2
+                spacing: 4
 
-            background: Rectangle {
-                radius: Theme.radiusControl
-                color: Theme.surfaceAlt
-                border.width: formatCombo.visualFocus ? 2 : 1
-                border.color: formatCombo.visualFocus ? Theme.accent : Theme.border
-            }
+                Label {
+                    text: "格式"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                }
 
-            onActivated: function (index) {
-                if (details.settings) {
-                    details.settings.defaultOutputFormat = index === 1 ? "mp3" : "mp4"
+                AppSelect {
+                    id: formatCombo
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: details.compact ? 46 : 40
+                    model: ["MP4 视频", "MP3 音频"]
+                    currentIndex: details.settings && details.settings.defaultOutputFormat === "mp3" ? 1 : 0
+                    compact: details.compact
+                    compactText: formatCombo.currentIndex === 1 ? "MP3" : "MP4"
+
+                    onActivated: function (index) {
+                        if (details.settings) {
+                            details.settings.defaultOutputFormat = index === 1 ? "mp3" : "mp4"
+                        }
+                    }
                 }
             }
-        }
 
-        ComboBox {
-            id: qualityCombo
-            visible: !details.iosPlatform && formatCombo.currentIndex === 0
-            Layout.fillWidth: true
-            model: details.inspector ? details.inspector.formatLabels : []
-            currentIndex: details.inspector && details.inspector.formatLabels.length > 0 ? 0 : -1
-            enabled: model.length > 0
-            font.family: Theme.fontFamily
-            font.pixelSize: 13
+            ColumnLayout {
+                id: qualityField
+                visible: !details.iosPlatform && formatCombo.currentIndex === 0
+                Layout.fillWidth: true
+                spacing: 4
 
-            contentItem: Text {
-                leftPadding: 13
-                rightPadding: 36
-                text: qualityCombo.displayText.length > 0 ? qualityCombo.displayText : "选择清晰度"
-                color: qualityCombo.enabled ? Theme.text : Theme.subtle
-                font: qualityCombo.font
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-            }
+                Label {
+                    text: "画质"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 11
+                }
 
-            background: Rectangle {
-                radius: Theme.radiusControl
-                color: Theme.surfaceAlt
-                border.width: qualityCombo.visualFocus ? 2 : 1
-                border.color: qualityCombo.visualFocus ? Theme.accent : Theme.border
-            }
+                AppSelect {
+                    id: qualityCombo
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: details.compact ? 46 : 40
+                    model: details.inspector ? details.inspector.formatLabels : []
+                    currentIndex: details.inspector && details.inspector.formatLabels.length > 0 ? 0 : -1
+                    enabled: model.length > 0
+                    emptyText: details.compact ? "选择" : "选择清晰度"
 
-            onActivated: function (index) {
-                if (details.inspector && index >= 0 && index < details.inspector.formats.length) {
-                    details.inspector.selectedFormatId = details.inspector.formats[index].id
+                    onActivated: function (index) {
+                        if (details.inspector && index >= 0 && index < details.inspector.formats.length) {
+                            details.inspector.selectedFormatId = details.inspector.formats[index].id
+                        }
+                    }
                 }
             }
         }
@@ -289,8 +299,10 @@ Item {
 
             AppButton {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: details.compact ? 1 : -1
                 text: details.iosPlatform ? "下载原始媒体"
-                      : (details.settings && details.settings.defaultOutputFormat === "mp3" ? "下载 MP3" : "下载 MP4")
+                      : (details.compact ? "下载" : (details.settings && details.settings.defaultOutputFormat === "mp3" ? "下载 MP3" : "下载 MP4"))
                 iconName: "download"
                 variant: "primary"
                 onClicked: details.downloadRequested(details.iosPlatform ? "mp4"
@@ -298,7 +310,9 @@ Item {
             }
 
             AppButton {
-                visible: !details.compact
+                Layout.fillWidth: details.compact
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: details.compact ? 1 : -1
                 text: "加入队列"
                 iconName: "queue"
                 variant: "secondary"
@@ -307,14 +321,5 @@ Item {
             }
         }
 
-        AppButton {
-            visible: details.compact
-            Layout.fillWidth: true
-            text: "加入下载队列"
-            iconName: "queue"
-            variant: "secondary"
-            onClicked: details.queueRequested(details.iosPlatform ? "mp4"
-                                                : (details.settings ? details.settings.defaultOutputFormat : "mp4"))
-        }
     }
 }

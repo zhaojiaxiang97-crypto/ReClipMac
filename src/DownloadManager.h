@@ -11,6 +11,25 @@
 #include "AndroidDownloadEngine.h"
 #include "PlatformStorage.h"
 
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+#include <QByteArray>
+#include <QFile>
+#include <QFutureWatcher>
+#include <QList>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPair>
+#include <QPointer>
+
+#include <atomic>
+#include <memory>
+
+#include "ffmpeg/FfmpegTypes.h"
+#include "ytdlp/YtDlpService.h"
+#endif
+
+class QTimer;
+
 class DownloadManager : public QObject
 {
     Q_OBJECT
@@ -87,7 +106,8 @@ private:
                                        const QString &line);
     void handleAndroidDownloadFinished(const QString &requestId,
                                        bool success,
-                                       const QString &outputPath,
+                                       const QByteArray &payload,
+                                       const QString &errorCode,
                                        const QString &errorMessage);
     void consumeOutput(const QByteArray &data, QByteArray &buffer);
     void consumeLine(const QString &line);
@@ -98,6 +118,26 @@ private:
                               bool success,
                               const QString &exportedUri,
                               const QString &errorMessage);
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+    void startSdkAudioTranscode();
+    void handleSdkAudioTranscodeFinished();
+    void startSdkVideoResolve();
+    void handleSdkVideoResolveFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void startSdkYtDlpDownload();
+    void handleSdkYtDlpDownloadFinished(bool ok,
+                                        const QByteArray &payload,
+                                        const QString &errorCode,
+                                        const QString &errorMessage);
+    void startSdkVideoDownload(int streamKind);
+    void handleSdkVideoDownloadProgress(int streamKind,
+                                        qint64 bytesReceived,
+                                        qint64 bytesTotal);
+    void handleSdkVideoStreamFinished(int streamKind);
+    void startSdkVideoProcessing();
+    void startSdkSegmentedProcessing();
+    void abortSdkVideoDownloads();
+    void fallbackSdkVideoToProcess(const QString &reason);
+#endif
     void resetForStart(const QString &sourceUrl, const QString &formatId);
     void cleanupTemporaryFiles();
     static QString friendlyError(const QString &rawMessage);
@@ -107,6 +147,55 @@ private:
     QProcess m_process;
 #endif
     AndroidDownloadEngine m_androidEngine;
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+    enum class SdkStreamKind {
+        Combined = 0,
+        Video = 1,
+        Audio = 2,
+    };
+
+    QFutureWatcher<ReClip::Ffmpeg::OperationResult> m_ffmpegWatcher;
+    ReClip::YtDlp::YtDlpService m_sdkResolver;
+    QString m_sdkResolveRequestId;
+    QNetworkAccessManager m_sdkNetwork;
+    QPointer<QNetworkReply> m_sdkCombinedReply;
+    QPointer<QNetworkReply> m_sdkVideoReply;
+    QPointer<QNetworkReply> m_sdkAudioReply;
+    QFile m_sdkCombinedFile;
+    QFile m_sdkVideoFile;
+    QFile m_sdkAudioFile;
+    QUrl m_sdkCombinedUrl;
+    QUrl m_sdkVideoUrl;
+    QUrl m_sdkAudioUrl;
+    QList<QPair<QByteArray, QByteArray>> m_sdkCombinedHeaders;
+    QList<QPair<QByteArray, QByteArray>> m_sdkVideoHeaders;
+    QList<QPair<QByteArray, QByteArray>> m_sdkAudioHeaders;
+    QString m_sdkCombinedPath;
+    QString m_sdkVideoPath;
+    QString m_sdkAudioPath;
+    qint64 m_sdkCombinedExpectedBytes = -1;
+    qint64 m_sdkVideoExpectedBytes = -1;
+    qint64 m_sdkAudioExpectedBytes = -1;
+    qint64 m_sdkCombinedReceivedBytes = 0;
+    qint64 m_sdkVideoReceivedBytes = 0;
+    qint64 m_sdkAudioReceivedBytes = 0;
+    bool m_sdkResolving = false;
+    bool m_sdkYtDlpDownloadActive = false;
+    bool m_sdkDownloadActive = false;
+    bool m_sdkFallbackPending = false;
+    bool m_sdkStarting = false;
+    QByteArray m_sdkResolveOutput;
+    QByteArray m_sdkResolveError;
+    bool m_sdkVideoProcessing = false;
+    bool m_sdkSegmentedProcessing = false;
+    bool m_sdkSeparateStreams = false;
+    bool m_forceProcessBackend = false;
+    QPointer<QTimer> m_sdkYtDlpProgressTimer;
+    QString m_sdkYtDlpDownloadRequestId;
+    QString m_sdkYtDlpDownloadPath;
+    QString m_sdkInputPath;
+    std::shared_ptr<std::atomic_bool> m_sdkCancelToken;
+#endif
     QByteArray m_stdoutBuffer;
     QByteArray m_stderrBuffer;
     QString m_ytDlpPath;

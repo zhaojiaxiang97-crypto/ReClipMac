@@ -28,13 +28,11 @@ ApplicationWindow {
     color: Theme.background
 
     function pageIndex() {
-        if (currentPage === "queue") {
-            return 1
-        }
-        if (currentPage === "settings") {
-            return 2
-        }
-        return 0
+        return currentPage === "queue" ? 1 : 0
+    }
+
+    function mobilePageIndex() {
+        return currentPage === "queue" ? 1 : 0
     }
 
     function navigate(page) {
@@ -52,6 +50,10 @@ ApplicationWindow {
     }
 
     function handleBackAction() {
+        if (mobileSettingsDrawer && mobileSettingsDrawer.opened) {
+            mobileSettingsDrawer.close()
+            return true
+        }
         if (window.currentPage !== "new") {
             window.currentPage = "new"
             return true
@@ -210,48 +212,20 @@ ApplicationWindow {
                         queue: window.downloadQueue
                         initialUrl: window.pendingExternalUrl
                         onOpenQueue: window.navigate("queue")
-                        onOpenTools: window.navigate("settings")
                     }
 
                     QueuePage {
                         queue: window.downloadQueue
                     }
-
-                    SettingsPage {
-                        settings: window.appSettings
-                        tools: window.toolLocator
-                        controller: window.appController
-                        platformStorage: window.platformStorage
-                    }
                 }
             }
 
             ActivityPanel {
-                visible: window.wideWidth && window.currentPage !== "settings"
+                visible: window.wideWidth
                 Layout.preferredWidth: visible ? 300 : 0
                 queue: window.downloadQueue
                 onOpenQueue: window.navigate("queue")
             }
-        }
-    }
-
-    Component {
-        id: iosSettingsPage
-
-        IosSettingsPage {
-            settings: window.appSettings
-            controller: window.appController
-        }
-    }
-
-    Component {
-        id: mobileSettingsPage
-
-        SettingsPage {
-            settings: window.appSettings
-            tools: window.toolLocator
-            controller: window.appController
-            platformStorage: window.platformStorage
         }
     }
 
@@ -262,11 +236,16 @@ ApplicationWindow {
             anchors.fill: parent
             spacing: 0
 
+            MobileHeader {
+                title: window.currentPage === "queue" ? "下载队列" : "下载工作台"
+                onMenuClicked: mobileSettingsDrawer.open()
+            }
+
             StackLayout {
                 id: mobilePages
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                currentIndex: window.pageIndex()
+                currentIndex: window.mobilePageIndex()
 
                 NewDownloadPage {
                     id: mobileNewDownloadPage
@@ -276,24 +255,13 @@ ApplicationWindow {
                     inspector: window.mediaInspector
                     downloads: window.downloadManager
                     queue: window.downloadQueue
+                    platformStorage: window.platformStorage
                     initialUrl: window.pendingExternalUrl
                     onOpenQueue: window.navigate("queue")
-                    onOpenTools: window.navigate("settings")
                 }
                 QueuePage {
                     queue: window.downloadQueue
                 }
-
-                Loader {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    sourceComponent: Qt.platform.os === "ios" ? iosSettingsPage : mobileSettingsPage
-                }
-            }
-
-            MobileBottomBar {
-                currentPage: window.currentPage
-                onNavigate: function (page) { window.navigate(page) }
             }
         }
     }
@@ -301,5 +269,16 @@ ApplicationWindow {
     Loader {
         anchors.fill: parent
         sourceComponent: window.compactWidth ? mobileShell : desktopShell
+    }
+
+    MobileSettingsDrawer {
+        id: mobileSettingsDrawer
+        enabled: window.compactWidth
+        settings: window.appSettings
+        controller: window.appController
+        platformStorage: window.platformStorage
+        toolsReady: window.toolLocator.ready
+        currentPage: window.currentPage
+        onNavigate: function (page) { window.navigate(page) }
     }
 }

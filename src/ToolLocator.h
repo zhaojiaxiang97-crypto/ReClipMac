@@ -9,6 +9,9 @@
 #include <QtQml/qqmlregistration.h>
 
 #include "AndroidDownloadEngine.h"
+#ifdef RECLIP_HAS_YTDLP_SDK
+#include "ytdlp/YtDlpService.h"
+#endif
 
 class ToolLocator : public QObject
 {
@@ -86,6 +89,10 @@ private:
     QProcess m_process;
 #endif
     AndroidDownloadEngine m_androidEngine;
+#ifdef RECLIP_HAS_YTDLP_SDK
+    ReClip::YtDlp::YtDlpService m_resolver;
+    QString m_runtimeProbeId;
+#endif
     QStringList m_pendingTools;
     QString m_currentTool;
     bool m_checking = false;

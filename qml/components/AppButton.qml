@@ -11,6 +11,7 @@ Button {
     property string iconText: ""
     property bool compact: false
     property bool iconOnly: false
+    property bool pill: false
 
     implicitHeight: compact ? 34 : 40
     implicitWidth: root.iconOnly ? (compact ? 34 : 40)
@@ -26,49 +27,58 @@ Button {
     font.weight: Font.Medium
     font.letterSpacing: 0.1
 
-    contentItem: Row {
-        spacing: root.iconOnly ? 0 : (root.iconName.length > 0 || root.iconText.length > 0 ? 8 : 0)
-        anchors.centerIn: parent
+    contentItem: Item {
+        implicitWidth: buttonContent.implicitWidth
+        implicitHeight: buttonContent.implicitHeight
 
-        IconGlyph {
-            visible: root.iconName.length > 0
-            name: root.iconName
-            color: root.contentColor
-            anchors.verticalCenter: parent.verticalCenter
-            size: root.compact ? 16 : 18
-        }
+        Row {
+            id: buttonContent
+            anchors.centerIn: parent
+            spacing: root.iconOnly ? 0 : (root.iconName.length > 0 || root.iconText.length > 0 ? 8 : 0)
 
-        Text {
-            visible: !root.iconOnly && root.iconName.length === 0 && root.iconText.length > 0
-            text: root.iconText
-            color: root.contentColor
-            font.family: Theme.fontFamily
-            font.pixelSize: root.compact ? 14 : 15
-            font.weight: Font.Medium
-            anchors.verticalCenter: parent.verticalCenter
-        }
+            IconGlyph {
+                visible: root.iconName.length > 0
+                name: root.iconName
+                color: root.contentColor
+                anchors.verticalCenter: parent.verticalCenter
+                size: root.compact ? 16 : 18
+            }
 
-        Text {
-            visible: !root.iconOnly
-            text: root.text
-            color: root.contentColor
-            font: root.font
-            anchors.verticalCenter: parent.verticalCenter
+            Text {
+                visible: !root.iconOnly && root.iconName.length === 0 && root.iconText.length > 0
+                text: root.iconText
+                color: root.contentColor
+                font.family: Theme.fontFamily
+                font.pixelSize: root.compact ? 14 : 15
+                font.weight: Font.Medium
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+                visible: !root.iconOnly
+                text: root.text
+                color: root.contentColor
+                font: root.font
+                anchors.verticalCenter: parent.verticalCenter
+            }
         }
     }
 
     readonly property color contentColor: {
+        if (!root.enabled) {
+            return Theme.subtle
+        }
         if (root.variant === "primary") {
             return Theme.accentText
         }
         if (root.variant === "danger") {
             return "#FFFFFF"
         }
-        return root.enabled ? Theme.text : Theme.subtle
+        return Theme.text
     }
 
     background: Rectangle {
-        radius: root.variant === "primary" ? Theme.radiusAction : Theme.radiusControl
+        radius: root.pill || root.variant === "primary" ? Theme.radiusAction : Theme.radiusControl
         color: {
             if (!root.enabled) {
                 return Theme.surfaceAlt

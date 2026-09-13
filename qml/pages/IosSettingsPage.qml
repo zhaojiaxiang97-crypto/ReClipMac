@@ -94,23 +94,13 @@ Item {
                         }
                     }
 
-                    Rectangle {
+                    Label {
                         Layout.fillWidth: true
-                        implicitHeight: pathLabel.implicitHeight + 20
-                        radius: Theme.radiusControl
-                        color: Theme.surfaceAlt
-
-                        Label {
-                            id: pathLabel
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            text: root.settings ? root.settings.downloadDirectory : "Documents/ReClip"
-                            color: Theme.muted
-                            font.family: Theme.monoFamily
-                            font.pixelSize: 11
-                            elide: Text.ElideMiddle
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                        text: "文件会保存到“文件”App 中的 ReClip 文件夹。iOS 当前使用系统固定位置，无需额外选择。"
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
                     }
                 }
             }

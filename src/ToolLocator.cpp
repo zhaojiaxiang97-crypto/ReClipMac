@@ -7,11 +7,29 @@
 #include <QProcessEnvironment>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+#include "ffmpeg/FfprobeService.h"
+#include "ffmpeg/FfmpegSdk.h"
+#endif
 
 ToolLocator::ToolLocator(QObject *parent)
     : QObject(parent)
     , m_androidEngine(this)
 {
+#ifdef RECLIP_HAS_YTDLP_SDK
+    connect(&m_resolver, &ReClip::YtDlp::YtDlpService::finished, this,
+        [this](const QString &id, bool ok, const QByteArray &payload, const QString &, const QString &error) {
+            if (id != m_runtimeProbeId) { return; }
+            m_runtimeProbeId.clear();
+            const auto info = QJsonDocument::fromJson(payload).object();
+            finishCurrent(ok, ok ? QStringLiteral("yt-dlp %1 / Python %2")
+                .arg(info.value(QStringLiteral("ytDlp")).toString(), info.value(QStringLiteral("python")).toString()) : QString(),
+                ok ? QStringLiteral("内嵌解析器已就绪；未配置命令行路径，复杂站点能力仍有限") : error);
+        });
+#endif
 #ifndef Q_OS_IOS
     connect(&m_process, &QProcess::finished, this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
@@ -157,6 +175,10 @@ QString ToolLocator::ffprobeStatus() const
 
 void ToolLocator::refresh()
 {
+#ifdef RECLIP_HAS_YTDLP_SDK
+    m_resolver.cancel(m_runtimeProbeId);
+    m_runtimeProbeId.clear();
+#endif
 #ifndef Q_OS_IOS
     if (m_process.state() != QProcess::NotRunning) {
         m_currentTool.clear();
@@ -262,6 +284,28 @@ QStringList packagedExecutableNames(const QString &executableName)
     return names;
 }
 
+QString findPackagedExecutablePath(const QString &executableName)
+{
+    const QString applicationDirectory = QCoreApplication::applicationDirPath();
+    const QStringList packagedDirectories {
+        PlatformPaths::runtimeDirectory(),
+        QDir(PlatformPaths::cacheDirectory()).filePath(QStringLiteral("bin")),
+        QDir(applicationDirectory).filePath(QStringLiteral("bin")),
+        QDir(applicationDirectory).filePath(QStringLiteral("../Resources/bin")),
+        applicationDirectory,
+        QDir(applicationDirectory).filePath(QStringLiteral("../Resources"))
+    };
+    for (const QString &directory : packagedDirectories) {
+        for (const QString &name : packagedExecutableNames(executableName)) {
+            const QFileInfo packagedFile(QDir(directory).filePath(name));
+            if (packagedFile.exists() && packagedFile.isFile() && packagedFile.isExecutable()) {
+                return packagedFile.absoluteFilePath();
+            }
+        }
+    }
+    return {};
+}
+
 } // namespace
 
 void ToolLocator::prepareState(const QString &toolName)
@@ -321,6 +365,33 @@ void ToolLocator::prepareState(const QString &toolName)
         return;
     }
 
+#ifdef RECLIP_HAS_YTDLP_SDK
+    if (normalizeToolName(toolName) == QStringLiteral("yt-dlp")) {
+        state.path.clear();
+        state.message = QStringLiteral("检测中（内嵌 Python）");
+        return;
+    }
+#endif
+
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+    const QString normalizedName = normalizeToolName(toolName);
+    if (normalizedName == QStringLiteral("ffmpeg")) {
+        state.path.clear();
+        state.version = QStringLiteral("FFmpeg SDK ") + ReClip::Ffmpeg::runtimeVersion();
+        state.available = true;
+        state.message = QStringLiteral("内嵌 FFmpeg SDK 已就绪；外部 FFmpeg 仅用于兼容回退");
+        return;
+    }
+    if (normalizedName == QStringLiteral("ffprobe")) {
+        state.path.clear();
+        state.version = QStringLiteral("FFprobe SDK ")
+            + ReClip::Ffmpeg::FfprobeService::runtimeVersion();
+        state.available = true;
+        state.message = QStringLiteral("内嵌 FFprobe SDK 已就绪；不需要外部 ffprobe");
+        return;
+    }
+#endif
+
     const QString executableName = normalizeToolName(toolName);
     const QString applicationDirectory = QCoreApplication::applicationDirPath();
     const QStringList packagedDirectories {
@@ -378,6 +449,13 @@ void ToolLocator::detectNext()
     while (!m_pendingTools.isEmpty()) {
         const QString toolName = m_pendingTools.takeFirst();
         ToolState &state = stateFor(toolName);
+#ifdef RECLIP_HAS_YTDLP_SDK
+        if (toolName == QStringLiteral("yt-dlp") && state.customPath.isEmpty()) {
+            m_currentTool = toolName;
+            m_runtimeProbeId = m_resolver.probe();
+            return;
+        }
+#endif
         if (state.path.isEmpty() || !state.message.startsWith(QStringLiteral("检测中"))) {
             emit statusChanged();
             continue;

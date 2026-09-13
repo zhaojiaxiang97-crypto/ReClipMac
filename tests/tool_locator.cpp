@@ -45,6 +45,14 @@ int main(int argc, char *argv[])
         || locator.ffprobeStatus().isEmpty()) {
         return 2;
     }
+#if defined(RECLIP_HAS_FFMPEG_SDK)
+    if (!locator.ffprobeAvailable()
+        || !locator.ffprobePath().isEmpty()
+        || !locator.ffprobeVersion().startsWith(QStringLiteral("FFprobe SDK "))
+        || !locator.ffprobeStatus().contains(QStringLiteral("不需要外部 ffprobe"))) {
+        return 5;
+    }
+#endif
 
     locator.setCustomPath(QStringLiteral("ffmpeg"), QStringLiteral("Z:/reclip-invalid/ffmpeg.exe"));
     if (!waitForRefresh(locator) || locator.ffmpegAvailable()

@@ -48,6 +48,7 @@ void JNICALL handleInspectionFinished(JNIEnv *,
                                       jstring requestId,
                                       jboolean success,
                                       jstring payload,
+                                      jstring errorCode,
                                       jstring errorMessage)
 {
     const QString id = fromJniString(requestId);
@@ -57,12 +58,13 @@ void JNICALL handleInspectionFinished(JNIEnv *,
     }
 
     const QByteArray json = fromJniString(payload).toUtf8();
+    const QString code = fromJniString(errorCode);
     const QString error = fromJniString(errorMessage);
     QMetaObject::invokeMethod(
         engine,
-        [engine, id, success, json, error] {
+        [engine, id, success, json, code, error] {
             if (engine) {
-                emit engine->inspectionFinished(id, success, json, error);
+                emit engine->inspectionFinished(id, success, json, code, error);
             }
             forgetRequest(id);
         },
@@ -102,7 +104,8 @@ void JNICALL handleDownloadFinished(JNIEnv *,
                                     jclass,
                                     jstring requestId,
                                     jboolean success,
-                                    jstring outputPath,
+                                    jstring payload,
+                                    jstring errorCode,
                                     jstring errorMessage)
 {
     const QString id = fromJniString(requestId);
@@ -111,13 +114,14 @@ void JNICALL handleDownloadFinished(JNIEnv *,
         return;
     }
 
-    const QString output = fromJniString(outputPath);
+    const QByteArray json = fromJniString(payload).toUtf8();
+    const QString code = fromJniString(errorCode);
     const QString error = fromJniString(errorMessage);
     QMetaObject::invokeMethod(
         engine,
-        [engine, id, success, output, error] {
+        [engine, id, success, json, code, error] {
             if (engine) {
-                emit engine->downloadFinished(id, success, output, error);
+                emit engine->downloadFinished(id, success, json, code, error);
             }
             forgetRequest(id);
         },
@@ -270,13 +274,13 @@ void AndroidDownloadEngine::ensureBridgeRegistered()
         "com/reclip/videodownloader/AndroidYtDlpBridge",
         {
             {"nativeHandleInspectionFinished",
-             "(Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V",
+             "(Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
              reinterpret_cast<void *>(handleInspectionFinished)},
             {"nativeHandleDownloadProgress",
              "(Ljava/lang/String;FJLjava/lang/String;Ljava/lang/String;)V",
              reinterpret_cast<void *>(handleDownloadProgress)},
             {"nativeHandleDownloadFinished",
-             "(Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V",
+             "(Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
              reinterpret_cast<void *>(handleDownloadFinished)},
         });
 #endif

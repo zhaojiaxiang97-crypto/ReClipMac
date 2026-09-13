@@ -1,0 +1,24 @@
+{
+  "python": {
+    "version": "3.13.15",
+    "url": "https://api.nuget.org/v3-flatcontainer/python/3.13.15/python.3.13.15.nupkg",
+    "sha512Base64": "CtMWTkEpEkEtie6eip2Ckok0J4EqZ7nkPY72dmhx+qfxDcFYmeNpHBTgM2/XnaPTnqqEPqwePgVqkVGtM2usBA==",
+    "source": "https://api.nuget.org/v3/catalog0/data/2026.08.05.14.57.43/python.3.13.15.json"
+  },
+  "wheels": [
+    {
+      "name": "yt-dlp",
+      "version": "2026.8.19",
+      "filename": "yt_dlp-2026.8.19-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/69/b2/8cd1613f56eed7ceb64fbd4df3f1c01246bfb098e6f398228bafda22b80b/yt_dlp-2026.8.19-py3-none-any.whl",
+      "sha256": "1d57897e94c6665a0a6f9bc54b34e584284e32c034ffab3a7df25d8f7b24eedf"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "filename": "certifi-2026.7.22-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl",
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"
+    }
+  ]
+}

@@ -21,7 +21,7 @@ compatibility identifiers and do not change the product name shown to users.
 - Lets you choose from the available video formats and quality levels.
 - Shows download progress, speed, remaining time, and queue status.
 - Lets you cancel, retry, reveal, or remove a download.
-- Saves download-folder, tool-path, and interface-theme preferences locally.
+- Saves the download folder and mobile export location locally.
 - Provides light and dark themes, clipboard paste, and drag-and-drop URL input.
 - Uses an adaptive QML interface and can use KDE Kirigami when it is installed.
 
@@ -29,7 +29,7 @@ compatibility identifiers and do not change the product name shown to users.
 
 The current CI produces desktop packages for Windows, macOS, and Linux. An
 experimental Android arm64-v8a build is also available for shell, URL intake,
-SAF export-directory, and runtime-diagnostics validation on a real device.
+SAF export-directory, and real-device UI validation.
 Android media downloading is still experimental, but the arm64-v8a build can
 bundle the maintained FFmpegKit runtime and the yt-dlp Android runtime for
 real-device validation. Background execution, ABI coverage, licensing review,
@@ -39,11 +39,20 @@ and signed release packaging are still being finalised.
 
 - Qt 6.8 or later, including Qt Quick, QML, Qt Quick Controls 2, and Shader Tools.
 - CMake 3.21 or later and a C++17-compatible compiler.
-- Desktop: `yt-dlp`, `ffmpeg`, and `ffprobe` available as executable tools.
+- Desktop process backend: `yt-dlp`, `ffmpeg`, and `ffprobe` available as executable tools.
+- Windows SDK backend: the in-process CPython/yt-dlp and FFmpeg SDK can handle
+  the tested single-stream MP4/MP3, separate streams, and controlled HLS/DASH
+  VOD flows without globally installed command-line tools. Compatibility builds
+  still support explicitly configured executable tools.
+- Experimental Windows yt-dlp SDK: enable `RECLIP_ENABLE_YTDLP_SDK` to embed
+  CPython and yt-dlp; single-format downloads use yt-dlp's native downloader and
+  multi-stream/segmented paths are handled by the host and FFmpeg SDK. See the
+  [runtime guide](docs/yt-dlp-embedded.md) for packaging, tested scope,
+  cancellation and the remaining JavaScript/protocol limitations.
 - Android: the optional full runtime build bundles the maintained FFmpegKit
   AAR and yt-dlp Android AAR; a dependency-free build still checks its private
-  `files/bin` directory (and optional APK `assets/bin` files) and reports the
-  missing runtime path in Settings.
+  `files/bin` directory (and optional APK `assets/bin` files) and reports a
+  missing runtime through download status instead of a tool-diagnostics page.
 - Optional adaptive shell: KDE Kirigami 6.8.0 and Extra CMake Modules 6.8.0.
 
 ### Build and test
@@ -57,6 +66,25 @@ cmake -S . -B .build/windows -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=O
 cmake --build .build/windows --config Release
 ctest --test-dir .build/windows -C Release --output-on-failure
 ```
+
+To build the Windows in-process FFmpeg backend, stage a shared LGPL FFmpeg SDK
+with `include`, `lib`, and `bin` directories, then configure it explicitly:
+
+```powershell
+$env:RECLIP_FFMPEG_ROOT = "$PWD\.third_party\ffmpeg\windows-x64"
+cmake -S . -B .build/windows-ffmpeg-sdk -G "Visual Studio 17 2022" -A x64 `
+  -DRECLIP_ENABLE_FFMPEG_SDK=ON `
+  -DRECLIP_FFMPEG_ROOT="$env:RECLIP_FFMPEG_ROOT" -DBUILD_TESTING=ON
+cmake --build .build/windows-ffmpeg-sdk --config Release
+ctest --test-dir .build/windows-ffmpeg-sdk -C Release --output-on-failure
+```
+
+In the Windows yt-dlp SDK mode, embedded yt-dlp resolves metadata; its native
+downloader handles single direct streams first, Qt is the strict in-process
+fallback, and the embedded FFmpeg service performs probing, remuxing, merging,
+and MP3 conversion. Separate streams and controlled HLS/DASH VOD use dedicated
+SDK paths; unsupported flows do not silently launch command-line tools. See
+`packaging/windows/README.md` for the portable package command.
 
 To enable the optional Kirigami shell on Windows, install the pinned local
 dependency first:
@@ -148,6 +176,11 @@ This project is released under the MIT Licence. See [LICENSE](LICENSE) and
 
 ## 简体中文
 
+新增实验性 Windows yt-dlp 内嵌方案：在 FFmpeg SDK 基础上启用
+`RECLIP_ENABLE_YTDLP_SDK`，将 CPython/yt-dlp 随应用内置，已接入媒体解析、
+基础 HTTP(S) MP4/MP3 下载和队列。它尚不等价于完整命令行网站支持，
+详见[运行时说明与测试边界](docs/yt-dlp-embedded.md)。
+
 ### 项目简介
 
 **Video Downloader（视频下载工具）** 是一个使用 Qt 6 和 QML 构建的跨平台
@@ -166,14 +199,14 @@ This project is released under the MIT Licence. See [LICENSE](LICENSE) and
 - 从可用格式和清晰度中选择输出质量。
 - 显示下载进度、速度、剩余时间和队列状态。
 - 支持取消、重试、打开文件位置和移除下载任务。
-- 在本地保存下载目录、工具路径和界面主题设置。
+- 在本地保存下载目录和移动端导出目录；输出格式和清晰度在下载流程中选择，旧版工具路径仍保留用于兼容模式。
 - 支持浅色/深色主题、从剪贴板粘贴链接，以及拖拽链接输入。
 - 使用自适应 QML 界面；安装 KDE Kirigami 后可以启用 Kirigami 壳层。
 
 ### 当前支持范围
 
 当前 CI 会生成 Windows、macOS 和 Linux 桌面端软件包。Android `arm64-v8a`
-实验构建也已经可以用于真机验收界面、链接入口、SAF 导出目录和运行时诊断。
+实验构建也已经可以用于真机验收界面、链接入口和 SAF 导出目录。
 Android 媒体下载暂未达到发布条件，因为 yt-dlp/FFmpeg 的运行时分发方案和
 后台执行模型仍在确定中。
 
@@ -181,9 +214,15 @@ Android 媒体下载暂未达到发布条件，因为 yt-dlp/FFmpeg 的运行时
 
 - Qt 6.8 或更高版本，包含 Qt Quick、QML、Qt Quick Controls 2 和 Shader Tools。
 - CMake 3.21 或更高版本，以及支持 C++17 的编译器。
-- 桌面端：需要可执行的 `yt-dlp`、`ffmpeg` 和 `ffprobe`。
+- 桌面进程后端：需要可执行的 `yt-dlp`、`ffmpeg` 和 `ffprobe`。
+- Windows SDK 后端：内嵌 CPython/yt-dlp 和 FFmpeg SDK 可以在没有全局
+  Python、yt-dlp、FFmpeg/FFprobe 时处理已验证的单流 MP4/MP3、独立双流和
+  受控 HLS/DASH VOD；多格式/未验证网站仍按能力矩阵处理。兼容构建仍支持
+  配置外部命令行工具。
+- Windows SDK 后端中的 `FfprobeService` 使用同一组 FFmpeg SDK 库提供媒体探测，
+  不需要发布或启动 `ffprobe.exe`；只有兼容构建或显式自定义外部路径才使用命令行版本。
 - Android：当前不会自动打包媒体运行时；应用会优先检查私有目录
-  `files/bin`（以及可选的 APK `assets/bin` 文件），缺失时在设置页显示实际路径。
+  `files/bin`（以及可选的 APK `assets/bin` 文件），缺失时通过下载状态提示；设置页只保留保存位置选择。
 - 可选的自适应界面依赖：KDE Kirigami 6.8.0 和 Extra CMake Modules 6.8.0。
 
 ### 构建与测试
@@ -197,6 +236,24 @@ cmake -S . -B .build/windows -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=O
 cmake --build .build/windows --config Release
 ctest --test-dir .build/windows -C Release --output-on-failure
 ```
+
+如果要启用 Windows 内嵌 FFmpeg 后端，请准备包含 `include`、`lib` 和 `bin`
+目录的动态 LGPL FFmpeg SDK，然后显式配置：
+
+```powershell
+$env:RECLIP_FFMPEG_ROOT = "$PWD\.third_party\ffmpeg\windows-x64"
+cmake -S . -B .build/windows-ffmpeg-sdk -G "Visual Studio 17 2022" -A x64 `
+  -DRECLIP_ENABLE_FFMPEG_SDK=ON `
+  -DRECLIP_FFMPEG_ROOT="$env:RECLIP_FFMPEG_ROOT" -DBUILD_TESTING=ON
+cmake --build .build/windows-ffmpeg-sdk --config Release
+ctest --test-dir .build/windows-ffmpeg-sdk -C Release --output-on-failure
+```
+
+SDK 模式下由内嵌 yt-dlp 解析媒体信息；单一合并流优先由其 Python 原生下载器
+写入临时文件，失败时回退到 Qt 网络层，内嵌 FFmpeg 服务负责探测、封装、合并
+和 MP3 转码。独立双流和受控 HLS/DASH VOD 使用各自的 SDK 路径，未验证媒体
+不会在严格内嵌模式自动启动命令行后端。Windows 便携包命令请参阅
+`packaging/windows/README.md`。
 
 如果要在 Windows 上启用可选的 Kirigami 壳层，请先安装固定版本的本地
 依赖：

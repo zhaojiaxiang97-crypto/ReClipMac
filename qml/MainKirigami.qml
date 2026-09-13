@@ -45,12 +45,11 @@ Kirigami.ApplicationWindow {
     readonly property var downloadQueue: queue
 
     function pageIndex() {
-        return currentPage === "settings" ? 1 : 0
+        return 0
     }
 
     function navigate(page) {
         window.currentPage = page === "queue" ? "new" : page
-        navigationDrawer.close()
     }
 
     function consumeIncomingUrl() {
@@ -64,8 +63,8 @@ Kirigami.ApplicationWindow {
     }
 
     function handleBackAction() {
-        if (navigationDrawer && navigationDrawer.opened) {
-            navigationDrawer.close()
+        if (compactSettingsDrawer && compactSettingsDrawer.opened) {
+            compactSettingsDrawer.close()
             return true
         }
         if (window.currentPage !== "new") {
@@ -197,57 +196,11 @@ Kirigami.ApplicationWindow {
 
     Component.onCompleted: window.consumeIncomingUrl()
 
-    globalDrawer: Kirigami.GlobalDrawer {
-        id: navigationDrawer
-        visible: window.mobilePlatform
-        enabled: window.mobilePlatform
-        handleVisible: window.mobilePlatform
-        title: window.appController.productName
-        isMenu: false
-        actions: [
-            Kirigami.Action {
-                text: "新建下载"
-                icon.name: "list-add"
-                checkable: true
-                checked: window.currentPage === "new"
-                onTriggered: window.navigate("new")
-            },
-            Kirigami.Action {
-                text: "设置"
-                icon.name: "settings-configure"
-                checkable: true
-                checked: window.currentPage === "settings"
-                onTriggered: window.navigate("settings")
-            }
-        ]
-
-        Label {
-            Layout.fillWidth: true
-            text: window.toolLocator.ready ? "yt-dlp / FFmpeg 已就绪" : "需要检查下载工具"
-            color: window.toolLocator.ready ? Theme.signal : Theme.warningText
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            wrapMode: Text.Wrap
-            padding: 16
-        }
-    }
-
-    // A narrow desktop window has enough width for a real page switcher but
-    // not enough room for the full drawer + activity workspace. Kirigami's
-    // tab bar keeps the navigation reachable without duplicating page state.
-    footer: MobileBottomBar {
-        id: narrowNavigation
-        visible: window.narrowDesktop
-        height: visible ? implicitHeight : 0
-        currentPage: window.currentPage
-        onNavigate: page => window.navigate(page)
-    }
-
     pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.None
 
     pageStack.initialPage: Kirigami.Page {
         id: workbenchPage
-        title: window.currentPage === "settings" ? "设置" : "下载工作台"
+        title: "下载工作台"
         padding: 0
         background: Rectangle {
             color: Theme.background
@@ -256,6 +209,11 @@ Kirigami.ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent
             spacing: 0
+
+            MobileHeader {
+                visible: window.mobilePlatform || window.narrowDesktop
+                onMenuClicked: compactSettingsDrawer.open()
+            }
 
             Rectangle {
                 visible: window.toolLocator.checking || !window.toolLocator.ready
@@ -271,7 +229,7 @@ Kirigami.ApplicationWindow {
 
                         Label {
                             Layout.fillWidth: true
-                            text: window.toolLocator.checking ? "正在检查下载引擎" : "下载工具尚未就绪"
+                            text: window.toolLocator.checking ? "正在初始化下载引擎" : "下载引擎尚未就绪"
                             color: Theme.muted
                             font.family: Theme.fontFamily
                             font.pixelSize: 12
@@ -311,19 +269,11 @@ Kirigami.ApplicationWindow {
                         queue: window.downloadQueue
                         inlineQueue: !window.wideWidth
                         initialUrl: window.pendingExternalUrl
-                        onOpenTools: window.navigate("settings")
-                    }
-
-                    KirigamiSettingsPage {
-                        settings: window.appSettings
-                        tools: window.toolLocator
-                        controller: window.appController
-                        platformStorage: window.platformStorage
                     }
                 }
 
                 ActivityPanel {
-                    visible: window.wideWidth && window.currentPage !== "settings"
+                    visible: window.wideWidth
                     Layout.preferredWidth: visible ? 312 : 0
                     Layout.topMargin: visible ? Theme.pageTop : 0
                     Layout.rightMargin: visible ? 18 : 0
@@ -332,5 +282,13 @@ Kirigami.ApplicationWindow {
                 }
             }
         }
+    }
+
+    MobileSettingsDrawer {
+        id: compactSettingsDrawer
+        enabled: window.mobilePlatform || window.narrowDesktop
+        settings: window.appSettings
+        controller: window.appController
+        platformStorage: window.platformStorage
     }
 }

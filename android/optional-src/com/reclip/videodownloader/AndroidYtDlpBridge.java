@@ -3,6 +3,8 @@ package com.reclip.videodownloader;
 import android.content.Context;
 import android.util.Log;
 
+import org.json.JSONObject;
+
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 
@@ -23,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -43,11 +46,17 @@ public final class AndroidYtDlpBridge {
             "com.arthenica.ffmpegkit.LogCallback";
     private static final String FFMPEG_STATISTICS_CALLBACK_CLASS =
             "com.arthenica.ffmpegkit.StatisticsCallback";
+    private static final String KIND_INSPECTION = "inspection";
+    private static final String KIND_DOWNLOAD = "download";
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
     private static final ConcurrentHashMap<String, Future<?>> OPERATIONS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Future<YtDlpResponse>> YTDLP_OPERATIONS =
+            new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Boolean> CANCELLED = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Boolean> FINISHED = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> REQUEST_KINDS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> REQUEST_DIRECTORIES = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, String> REQUEST_FORMATS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> REQUEST_TASK_IDS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Long> REQUEST_STARTED_AT = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> REQUEST_OUTPUTS = new ConcurrentHashMap<>();
@@ -85,31 +94,59 @@ public final class AndroidYtDlpBridge {
     }
 
     public static void inspect(String requestId, String url) {
-        EXECUTOR.execute(() -> {
-            try {
-                initialize();
-                if (!initialized) {
-                    finishInspection(requestId, false, "", "Android yt-dlp 运行时尚未初始化");
-                    return;
-                }
-
-                PyObject options = Python.getInstance().getBuiltins().callAttr("dict");
-                setOption(options, "quiet", true);
-                setOption(options, "no_warnings", true);
-                setOption(options, "noplaylist", true);
-                setOption(options, "skip_download", true);
-                setOption(options, "socket_timeout", 30);
-
-                PyObject ytDlpModule = Python.getInstance().getModule("yt_dlp");
-                PyObject downloader = ytDlpModule.callAttr("YoutubeDL", options);
-                PyObject info = downloader.callAttr("extract_info", url, false);
-                PyObject jsonModule = Python.getInstance().getModule("json");
-                String payload = jsonModule.callAttr("dumps", info).toJava(String.class);
-                finishInspection(requestId, true, payload, "");
-            } catch (Exception exception) {
-                finishInspection(requestId, false, "", messageFor(exception));
-            }
+        CANCELLED.remove(requestId);
+        FINISHED.remove(requestId);
+        REQUEST_KINDS.put(requestId, KIND_INSPECTION);
+        FutureTask<Void> operation = new FutureTask<>(() -> {
+            runInspection(requestId, url);
+            return null;
         });
+        OPERATIONS.put(requestId, operation);
+        EXECUTOR.execute(operation);
+    }
+
+    private static void runInspection(String requestId, String url) {
+        try {
+            if (isCancelled(requestId)) {
+                return;
+            }
+            initialize();
+            if (!initialized) {
+                finishInspection(requestId, false, "", "runtime-error",
+                        "Android yt-dlp 运行时尚未初始化");
+                return;
+            }
+
+            PyObject options = Python.getInstance().getBuiltins().callAttr("dict");
+            setOption(options, "quiet", true);
+            setOption(options, "no_warnings", true);
+            setOption(options, "noplaylist", true);
+            setOption(options, "skip_download", true);
+            setOption(options, "socket_timeout", 30);
+
+            PyObject ytDlpModule = Python.getInstance().getModule("yt_dlp");
+            PyObject downloader = ytDlpModule.callAttr("YoutubeDL", options);
+            PyObject info = downloader.callAttr("extract_info", url, false);
+            if (isCancelled(requestId)) {
+                return;
+            }
+            PyObject jsonModule = Python.getInstance().getModule("json");
+            String payload = jsonModule.callAttr("dumps", info).toJava(String.class);
+            finishInspection(requestId, true, payload, "", "");
+        } catch (Exception exception) {
+            if (!isCancelled(requestId)) {
+                String error = messageFor(exception);
+                finishInspection(requestId, false, "", errorCodeFor(error), error);
+            }
+        } finally {
+            if (isCancelled(requestId)) {
+                finishInspection(requestId, false, "", "cancelled", "已取消");
+            }
+            OPERATIONS.remove(requestId);
+            REQUEST_KINDS.remove(requestId);
+            CANCELLED.remove(requestId);
+            FINISHED.remove(requestId);
+        }
     }
 
     public static void download(String requestId,
@@ -120,30 +157,35 @@ public final class AndroidYtDlpBridge {
                                 String taskId) {
         CANCELLED.remove(requestId);
         FINISHED.remove(requestId);
+        REQUEST_KINDS.put(requestId, KIND_DOWNLOAD);
         REQUEST_DIRECTORIES.put(requestId, outputDirectory == null ? "" : outputDirectory);
+        REQUEST_FORMATS.put(requestId, format == null ? "" : format);
         REQUEST_TASK_IDS.put(requestId, taskId == null ? "" : taskId);
         REQUEST_STARTED_AT.put(requestId, System.currentTimeMillis());
         REQUEST_OUTPUTS.remove(requestId);
         MainActivity.startDownloadForeground(
                 requestId, "Video Downloader", REQUEST_TASK_IDS.get(requestId));
-        Future<?> operation = EXECUTOR.submit(() -> runDownload(
-                requestId, url, formatId, format, outputDirectory));
+        FutureTask<Void> operation = new FutureTask<>(() -> {
+            runDownload(requestId, url, formatId, format, outputDirectory);
+            return null;
+        });
         OPERATIONS.put(requestId, operation);
+        EXECUTOR.execute(operation);
     }
 
     public static void cancel(String requestId) {
-        CANCELLED.put(requestId, true);
-        Future<?> operation = OPERATIONS.get(requestId);
-        if (operation != null) {
-            operation.cancel(true);
+        String kind = REQUEST_KINDS.get(requestId);
+        if (kind == null) {
+            return;
         }
-        cancelFfmpegSession(FFMPEG_SESSIONS.get(requestId));
-        cleanupTemporaryFiles(requestId);
-        cleanupTemporaryFilesEventually(
-                REQUEST_DIRECTORIES.get(requestId),
-                REQUEST_STARTED_AT.get(requestId),
-                REQUEST_OUTPUTS.get(requestId));
-        finishDownload(requestId, false, REQUEST_OUTPUTS.getOrDefault(requestId, ""), "已取消");
+        CANCELLED.put(requestId, true);
+        Future<YtDlpResponse> ytDlpOperation = YTDLP_OPERATIONS.get(requestId);
+        if (ytDlpOperation != null) {
+            ytDlpOperation.cancel(true);
+        }
+        if (KIND_DOWNLOAD.equals(kind)) {
+            cancelFfmpegSession(FFMPEG_SESSIONS.get(requestId));
+        }
     }
 
     private static void runDownload(String requestId,
@@ -222,8 +264,14 @@ public final class AndroidYtDlpBridge {
 
             Future<YtDlpResponse> future = YtDlp.executeDebug(
                     request, logCallback, progressCallback);
+            YTDLP_OPERATIONS.put(requestId, future);
             OPERATIONS.put(requestId, future);
+            if (isCancelled(requestId)) {
+                future.cancel(true);
+                return;
+            }
             YtDlpResponse response = future.get();
+            YTDLP_OPERATIONS.remove(requestId);
             if (CANCELLED.containsKey(requestId)) {
                 return;
             }
@@ -252,14 +300,24 @@ public final class AndroidYtDlpBridge {
             finishDownload(requestId, true, result, "");
             terminalSuccess = true;
         } catch (CancellationException ignored) {
-            // cancel() already reported the terminal state to the Qt side.
+            // The finally block reports cancellation only after the worker has
+            // left the embedded yt-dlp/FFmpeg operation.
         } catch (Exception exception) {
             if (!CANCELLED.containsKey(requestId)) {
-                finishDownload(requestId, false, "", messageFor(exception));
+                String error = messageFor(exception);
+                finishDownload(requestId, false, "", errorCodeFor(error), error);
             }
         } finally {
+            YTDLP_OPERATIONS.remove(requestId);
             if (CANCELLED.containsKey(requestId)) {
                 cleanupTemporaryFiles(requestId);
+                cleanupTemporaryFilesEventually(
+                        REQUEST_DIRECTORIES.get(requestId),
+                        REQUEST_STARTED_AT.get(requestId),
+                        REQUEST_OUTPUTS.get(requestId));
+                finishDownload(requestId, false,
+                        REQUEST_OUTPUTS.getOrDefault(requestId, ""),
+                        "cancelled", "已取消");
             } else if (!terminalSuccess) {
                 cleanupTemporaryFiles(requestId);
                 cleanupTemporaryFilesEventually(
@@ -269,9 +327,11 @@ public final class AndroidYtDlpBridge {
             }
             OPERATIONS.remove(requestId);
             FFMPEG_SESSIONS.remove(requestId);
+            REQUEST_KINDS.remove(requestId);
             CANCELLED.remove(requestId);
             FINISHED.remove(requestId);
             REQUEST_DIRECTORIES.remove(requestId);
+            REQUEST_FORMATS.remove(requestId);
             REQUEST_TASK_IDS.remove(requestId);
             REQUEST_STARTED_AT.remove(requestId);
             REQUEST_OUTPUTS.remove(requestId);
@@ -593,12 +653,84 @@ public final class AndroidYtDlpBridge {
                 ? cause.getClass().getSimpleName() : message;
     }
 
+    private static boolean isCancelled(String requestId) {
+        return CANCELLED.containsKey(requestId);
+    }
+
+    private static String errorCodeFor(String error) {
+        String lower = error == null ? "" : error.toLowerCase();
+        if ("已取消".equals(error) || lower.contains("cancel")) {
+            return "cancelled";
+        }
+        if (lower.contains("timed out") || lower.contains("timeout")
+                || lower.contains("timedout")) {
+            return "timeout";
+        }
+        if (lower.contains("unsupported url") || lower.contains("no suitable extractor")) {
+            return "unsupported-url";
+        }
+        if (lower.contains("http error 404") || lower.contains("not found")) {
+            return "not-found";
+        }
+        if (lower.contains("private video") || lower.contains("login required")
+                || lower.contains("sign in")) {
+            return "private-media";
+        }
+        if (lower.contains("drm")) {
+            return "drm";
+        }
+        if (lower.contains("no space") || lower.contains("storage")
+                || lower.contains("存储空间")) {
+            return "storage-error";
+        }
+        if (lower.contains("ffmpeg") || lower.contains("转换")) {
+            return "processing-error";
+        }
+        if (lower.contains("runtime") || lower.contains("python")
+                || lower.contains("运行时")) {
+            return "runtime-error";
+        }
+        return "tool-error";
+    }
+
+    private static String buildDownloadPayload(String requestId, String outputPath) {
+        if (outputPath == null || outputPath.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            File output = new File(outputPath).getAbsoluteFile();
+            JSONObject payload = new JSONObject();
+            payload.put("path", output.getAbsolutePath());
+            payload.put("backend", "android-ytdlp-sdk");
+            String format = REQUEST_FORMATS.getOrDefault(requestId, "");
+            payload.put("format", format);
+            payload.put("postProcessed", "mp3".equalsIgnoreCase(format));
+            if (output.isFile()) {
+                payload.put("bytes", output.length());
+            }
+            return payload.toString();
+        } catch (Exception exception) {
+            Log.w(TAG, "Unable to build Android download result", exception);
+            return "";
+        }
+    }
+
     private static void finishInspection(String requestId,
                                          boolean success,
                                          String payload,
+                                         String errorCode,
                                          String error) {
+        if (FINISHED.putIfAbsent(requestId, true) != null) {
+            return;
+        }
+        if (isCancelled(requestId)) {
+            success = false;
+            payload = "";
+            errorCode = "cancelled";
+            error = "已取消";
+        }
         try {
-            nativeHandleInspectionFinished(requestId, success, payload, error);
+            nativeHandleInspectionFinished(requestId, success, payload, errorCode, error);
         } catch (UnsatisfiedLinkError ignored) {
             // The Qt JNI registration may still be in progress during startup.
         }
@@ -608,13 +740,27 @@ public final class AndroidYtDlpBridge {
                                        boolean success,
                                        String outputPath,
                                        String error) {
+        finishDownload(requestId, success, outputPath, errorCodeFor(error), error);
+    }
+
+    private static void finishDownload(String requestId,
+                                       boolean success,
+                                       String outputPath,
+                                       String errorCode,
+                                       String error) {
         if (FINISHED.putIfAbsent(requestId, true) != null) {
             return;
         }
+        if (isCancelled(requestId)) {
+            success = false;
+            errorCode = "cancelled";
+            error = "已取消";
+        }
+        String payload = success ? buildDownloadPayload(requestId, outputPath) : "";
         MainActivity.finishDownloadForeground(
                 requestId, REQUEST_TASK_IDS.getOrDefault(requestId, ""), success, error);
         try {
-            nativeHandleDownloadFinished(requestId, success, outputPath, error);
+            nativeHandleDownloadFinished(requestId, success, payload, errorCode, error);
         } catch (UnsatisfiedLinkError ignored) {
             // The Qt JNI registration may still be in progress during startup.
         }
@@ -623,6 +769,7 @@ public final class AndroidYtDlpBridge {
     private static native void nativeHandleInspectionFinished(String requestId,
                                                                boolean success,
                                                                String payload,
+                                                               String errorCode,
                                                                String errorMessage);
     private static native void nativeHandleDownloadProgress(String requestId,
                                                              float progress,
@@ -631,6 +778,7 @@ public final class AndroidYtDlpBridge {
                                                              String line);
     private static native void nativeHandleDownloadFinished(String requestId,
                                                             boolean success,
-                                                            String outputPath,
+                                                            String payload,
+                                                            String errorCode,
                                                             String errorMessage);
 }

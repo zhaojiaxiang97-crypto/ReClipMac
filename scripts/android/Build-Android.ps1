@@ -8,6 +8,12 @@ param(
     [string] $AndroidSdkRoot = "C:\Android\sdk",
     [string] $NdkVersion = "26.1.10909125",
     [string] $AndroidPlatform = "android-34",
+    [string] $JavaHome = "",
+    [ValidateRange(1, 64)]
+    [int] $Parallel = 4,
+    [ValidatePattern('^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$')]
+    [string] $ApplicationId = "com.reclip.videodownloader",
+    [string] $AppName = "Video Downloader",
     [string] $BuildDir = "",
     [switch] $WithYtDlpAndroid,
     [string] $YtDlpAarPath = "",
@@ -18,6 +24,36 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path
+
+# Prefer an explicit JDK, then a working JAVA_HOME, then the project-local
+# toolchain. A stale system JAVA_HOME must not hide a usable local JDK.
+if ([string]::IsNullOrWhiteSpace($JavaHome)) {
+    if ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME "bin\javac.exe"))) {
+        $JavaHome = $env:JAVA_HOME
+    } else {
+        $localJdk = Get-ChildItem (Join-Path $repoRoot ".third_party\java") -Directory -Filter "jdk-17*" -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -First 1
+        if ($localJdk) { $JavaHome = $localJdk.FullName }
+    }
+}
+if ([string]::IsNullOrWhiteSpace($JavaHome) -or -not (Test-Path (Join-Path $JavaHome "bin\javac.exe"))) {
+    throw "A JDK is required. Install JDK 17 and pass -JavaHome or set JAVA_HOME."
+}
+$env:JAVA_HOME = (Resolve-Path $JavaHome).Path
+$env:PATH = (Join-Path $env:JAVA_HOME "bin") + [IO.Path]::PathSeparator + $env:PATH
+# Use a real project-local temporary path. Windows packaged terminals can
+# expose a virtualized TEMP where Java NIO's Unix-domain loopback fails.
+$javaTemp = Join-Path $repoRoot ".scratch\android-java-tmp"
+New-Item -ItemType Directory -Force -Path $javaTemp | Out-Null
+$env:TEMP = $javaTemp
+$env:TMP = $javaTemp
+if ([string]::IsNullOrWhiteSpace($env:GRADLE_USER_HOME)) {
+    $env:GRADLE_USER_HOME = Join-Path $repoRoot ".third_party\gradle-cache"
+}
+# androiddeployqt invokes Gradle without --no-daemon. A persistent child can
+# keep PowerShell's redirected output pipe open after CMake has finished.
+$env:GRADLE_OPTS = "$env:GRADLE_OPTS -Dorg.gradle.daemon=false".Trim()
+
 $targetArch = if ($Abi -eq "arm64-v8a") { "android_arm64_v8a" } else { "android_x86_64" }
 $qtHost = Join-Path $QtRoot "$QtVersion\msvc2022_64"
 $qtTarget = Join-Path $QtRoot "$QtVersion\$targetArch"
@@ -31,13 +67,17 @@ if ([string]::IsNullOrWhiteSpace($BuildDir)) {
 }
 
 $androidPackageSource = Join-Path $repoRoot "android"
-$needsStagedAndroidPackage = $WithYtDlpAndroid -or $WithAndroidFfmpegKit
+$needsStagedAndroidPackage = $WithYtDlpAndroid -or $WithAndroidFfmpegKit -or $AppName -ne "Video Downloader"
 if ($needsStagedAndroidPackage) {
     $androidPackageSource = Join-Path $BuildDir "android-package"
     New-Item -ItemType Directory -Force -Path $androidPackageSource | Out-Null
     Copy-Item -Path (Join-Path $repoRoot "android\*") -Destination $androidPackageSource -Recurse -Force
     $androidLibDirectory = Join-Path $androidPackageSource "libs"
     New-Item -ItemType Directory -Force -Path $androidLibDirectory | Out-Null
+    $stringsPath = Join-Path $androidPackageSource "res\values\strings.xml"
+    [xml]$strings = Get-Content -LiteralPath $stringsPath -Encoding UTF8
+    $strings.SelectSingleNode('/resources/string[@name="app_name"]').InnerText = $AppName
+    $strings.Save($stringsPath)
 }
 
 if ($WithYtDlpAndroid) {
@@ -110,9 +150,11 @@ function Resolve-Executable([string] $Name, [string[]] $Candidates) {
 }
 
 $cmake = Resolve-Executable "cmake" @(
+    (Join-Path $QtRoot "Tools\CMake_64\bin\cmake.exe"),
     "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 )
 $ninja = Resolve-Executable "ninja" @(
+    (Join-Path $QtRoot "Tools\Ninja\ninja.exe"),
     "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
 )
 
@@ -141,6 +183,7 @@ $cmakeArgs = @(
     "-DQT_HOST_PATH=$qtHost",
     "-DRECLIP_ENABLE_KIRIGAMI=OFF",
     "-DRECLIP_ANDROID_PACKAGE_SOURCE_DIR=$androidPackageSource",
+    "-DRECLIP_ANDROID_APPLICATION_ID=$ApplicationId",
     "-DBUILD_TESTING=OFF"
 )
 
@@ -151,7 +194,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Building Android APK..."
-& $cmake "--build" $BuildDir "--parallel"
+& $cmake "--build" $BuildDir "--parallel" $Parallel
 if ($LASTEXITCODE -ne 0) {
     throw "Android build failed with exit code $LASTEXITCODE."
 }

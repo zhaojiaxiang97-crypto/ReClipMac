@@ -52,58 +52,16 @@ Item {
 
     implicitHeight: rowColumn.implicitHeight + (compact ? 20 : 28)
 
-    Dialog {
+    AppDialog {
         id: removeDialog
-        modal: true
-        title: "删除下载任务"
-        width: Math.min(420, Math.max(280, root.width - 32))
-
-        contentItem: ColumnLayout {
-            spacing: 8
-
-            Label {
-                Layout.fillWidth: true
-                text: "确定删除“%1”吗？".arg(root.taskTitle)
-                color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: 15
-                font.weight: Font.DemiBold
-                wrapMode: Text.Wrap
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: "任务记录和已生成的本地文件都会被移除。"
-                color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
-                wrapMode: Text.Wrap
-            }
-        }
-
-        footer: RowLayout {
-            width: parent ? parent.width : 0
-            spacing: 8
-
-            Item { Layout.fillWidth: true }
-
-            AppButton {
-                text: "取消"
-                variant: "ghost"
-                compact: true
-                onClicked: removeDialog.reject()
-            }
-
-            AppButton {
-                text: "删除"
-                iconName: "trash"
-                variant: "danger"
-                compact: true
-                onClicked: removeDialog.accept()
-            }
-        }
-
-        onAccepted: root.removeClicked(root.taskId)
+        heading: "删除下载任务"
+        iconName: "trash"
+        tone: "danger"
+        message: "确定删除“%1”吗？".arg(root.taskTitle)
+        detail: "任务记录和已生成的本地文件都会被移除。"
+        cancelText: "取消"
+        confirmText: "删除"
+        onConfirmed: root.removeClicked(root.taskId)
     }
 
     Rectangle {

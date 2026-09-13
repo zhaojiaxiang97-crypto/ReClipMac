@@ -24,20 +24,18 @@ MediaInspector::MediaInspector(QObject *parent)
     m_timeout.setInterval(35000);
 
 #ifndef Q_OS_IOS
-    connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
-        m_standardOutput += m_process.readAllStandardOutput();
-    });
-    connect(&m_process, &QProcess::readyReadStandardError, this, [this] {
-        m_standardError += m_process.readAllStandardError();
-    });
-    connect(&m_process, &QProcess::finished, this,
-            [this](int exitCode, QProcess::ExitStatus exitStatus) {
-                handleFinished(exitCode, exitStatus);
-            });
-    connect(&m_process, &QProcess::errorOccurred, this,
-            [this](QProcess::ProcessError error) {
-                handleProcessError(error);
-            });
+    connect(&m_resolver, &ReClip::YtDlp::YtDlpService::finished, this,
+        [this](const QString &id, bool ok, const QByteArray &payload, const QString &code, const QString &error) {
+            if (id != m_resolveRequestId || !m_inspecting) { return; }
+            m_resolveRequestId.clear();
+            if (ok) {
+                parseMetadata(payload);
+            } else {
+                const auto classification = classifyError(error);
+                finishWithError(code == QStringLiteral("tool-error") ? classification.value(0) : code,
+                                classification.value(1));
+            }
+        });
 #endif
     connect(&m_androidEngine,
             &AndroidDownloadEngine::inspectionFinished,
@@ -50,9 +48,7 @@ MediaInspector::MediaInspector(QObject *parent)
 
         m_inspecting = false;
 #ifndef Q_OS_IOS
-        if (m_process.state() != QProcess::NotRunning) {
-            m_process.kill();
-        }
+        m_resolver.cancel(m_resolveRequestId);
 #endif
         if (!m_androidRequestId.isEmpty()) {
             m_androidEngine.cancel(m_androidRequestId);
@@ -158,11 +154,8 @@ void MediaInspector::setYtDlpPath(const QString &path)
 void MediaInspector::inspect(const QString &url)
 {
 #ifndef Q_OS_IOS
-    if (m_process.state() != QProcess::NotRunning) {
-        m_inspecting = false;
-        m_process.kill();
-        m_process.waitForFinished(500);
-    }
+    m_resolver.cancel(m_resolveRequestId);
+    m_resolveRequestId.clear();
 #endif
     if (!m_androidRequestId.isEmpty()) {
         m_androidEngine.cancel(m_androidRequestId);
@@ -221,7 +214,7 @@ void MediaInspector::inspect(const QString &url)
 #endif
 
 #ifndef Q_OS_IOS
-    if (m_ytDlpPath.trimmed().isEmpty()) {
+    if (m_ytDlpPath.trimmed().isEmpty() && !ReClip::YtDlp::YtDlpService::embeddedEnabled()) {
         finishWithError(QStringLiteral("tool-missing"), QStringLiteral("yt-dlp 不可用，请先在工具诊断中完成配置"));
         return;
     }
@@ -230,30 +223,18 @@ void MediaInspector::inspect(const QString &url)
     m_inspecting = true;
     emit stateChanged();
 
-    m_process.setProgram(m_ytDlpPath);
-    m_process.setArguments({
-        QStringLiteral("--no-playlist"),
-        QStringLiteral("--no-warnings"),
-        QStringLiteral("--no-progress"),
-        QStringLiteral("--socket-timeout"),
-        QStringLiteral("30"),
-        QStringLiteral("-J"),
-        m_sourceUrl
-    });
-    m_process.setProcessChannelMode(QProcess::SeparateChannels);
-    m_process.start();
-    m_timeout.start();
+    m_resolver.setProgram(m_ytDlpPath);
+    ReClip::YtDlp::Request request;
+    request.url = m_sourceUrl;
+    m_resolveRequestId = m_resolver.inspect(request);
 #endif
 }
 
 void MediaInspector::clear()
 {
 #ifndef Q_OS_IOS
-    if (m_process.state() != QProcess::NotRunning) {
-        m_inspecting = false;
-        m_process.kill();
-        m_process.waitForFinished(500);
-    }
+    m_resolver.cancel(m_resolveRequestId);
+    m_resolveRequestId.clear();
 #endif
     if (!m_androidRequestId.isEmpty()) {
         m_androidEngine.cancel(m_androidRequestId);
@@ -276,45 +257,10 @@ void MediaInspector::clear()
     emit stateChanged();
 }
 
-#ifndef Q_OS_IOS
-void MediaInspector::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-    if (!m_inspecting) {
-        return;
-    }
-
-    m_timeout.stop();
-    m_standardOutput += m_process.readAllStandardOutput();
-    m_standardError += m_process.readAllStandardError();
-
-    if (exitStatus != QProcess::NormalExit || exitCode != 0) {
-        const QString rawMessage = QString::fromLocal8Bit(m_standardError).trimmed();
-        const QStringList classification = classifyError(rawMessage);
-        finishWithError(classification.value(0), classification.value(1));
-        return;
-    }
-
-    parseMetadata(m_standardOutput);
-}
-
-void MediaInspector::handleProcessError(QProcess::ProcessError error)
-{
-    if (!m_inspecting) {
-        return;
-    }
-
-    m_timeout.stop();
-    if (error == QProcess::FailedToStart) {
-        finishWithError(QStringLiteral("tool-error"), QStringLiteral("无法启动 yt-dlp，请检查工具路径和执行权限"));
-    } else {
-        finishWithError(QStringLiteral("tool-error"), QStringLiteral("yt-dlp 进程错误：%1").arg(m_process.errorString()));
-    }
-}
-#endif
-
 void MediaInspector::handleAndroidInspectionFinished(const QString &requestId,
                                                       bool success,
                                                       const QByteArray &payload,
+                                                      const QString &errorCode,
                                                       const QString &errorMessage)
 {
     if (!m_inspecting || requestId != m_androidRequestId) {
@@ -325,7 +271,11 @@ void MediaInspector::handleAndroidInspectionFinished(const QString &requestId,
     m_timeout.stop();
     if (!success) {
         const QStringList classification = classifyError(errorMessage);
-        finishWithError(classification.value(0), classification.value(1));
+        const QString code = errorCode.isEmpty() ? classification.value(0) : errorCode;
+        const QString message = errorCode == QStringLiteral("cancelled")
+            ? QStringLiteral("已取消")
+            : classification.value(1);
+        finishWithError(code, message);
         return;
     }
 

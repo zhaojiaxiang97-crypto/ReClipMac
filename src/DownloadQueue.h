@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QByteArray>
+
 #ifndef Q_OS_IOS
 #include <QProcess>
 #endif
@@ -19,6 +21,10 @@
 
 #include "AndroidDownloadEngine.h"
 #include "PlatformStorage.h"
+
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+#include "DownloadManager.h"
+#endif
 
 class DownloadQueue : public QObject
 {
@@ -52,6 +58,10 @@ public:
 
     Q_INVOKABLE void addUrls(const QString &rawInput, const QString &format);
     Q_INVOKABLE void addTask(const QString &sourceUrl, const QString &formatId, const QString &format);
+    Q_INVOKABLE void addTaskWithTitle(const QString &sourceUrl,
+                                      const QString &formatId,
+                                      const QString &format,
+                                      const QString &title);
     Q_INVOKABLE void startAll();
     Q_INVOKABLE void cancelTask(const QString &taskId);
     Q_INVOKABLE void retryTask(const QString &taskId);
@@ -92,6 +102,10 @@ private:
     void startNext();
     void startTask(int index);
     void cancelActiveTask();
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    void handleSdkManagerStateChanged();
+    void handleSdkManagerProgressChanged();
+#endif
 #ifdef Q_OS_IOS
     void startIosDownload(Task &task);
     void finishIosDownload();
@@ -108,7 +122,8 @@ private:
                                        const QString &line);
     void handleAndroidDownloadFinished(const QString &requestId,
                                        bool success,
-                                       const QString &outputPath,
+                                       const QByteArray &payload,
+                                       const QString &errorCode,
                                        const QString &errorMessage);
     void consumeOutput(const QByteArray &data, QByteArray &buffer);
     void consumeLine(const QString &line);
@@ -130,6 +145,9 @@ private:
     QProcess m_process;
 #endif
     AndroidDownloadEngine m_androidEngine;
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    DownloadManager m_sdkManager;
+#endif
 #ifdef Q_OS_IOS
     QNetworkAccessManager m_iosNetwork;
     QPointer<QNetworkReply> m_iosReply;

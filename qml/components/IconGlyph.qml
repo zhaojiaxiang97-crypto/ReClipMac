@@ -55,6 +55,7 @@ Item {
         width: 1024
         height: 1024
         anchors.centerIn: parent
+        visible: root.name !== "loading"
         // Most Ant Design glyphs use viewBox="64 64 896 896". Centering a
         // 1024px path canvas and scaling by the actual viewBox keeps those
         // icons optically the same size as the few 0 0 1024 icons.
@@ -65,14 +66,49 @@ Item {
             fillColor: root.color
             strokeColor: "transparent"
             strokeWidth: 0
-            fillRule: ShapePath.OddEvenFill
+            // SVG icon paths use the non-zero winding rule. Odd-even filling
+            // breaks overlapping scan corners into disconnected fragments on
+            // some Qt renderers, which makes the scanner glyph look inverted.
+            fillRule: ShapePath.WindingFill
 
             PathSvg { path: root.iconPath(root.name) }
         }
     }
 
+    // The original Ant Design loading path is a filled quarter segment. It
+    // reads as a bent wedge at small sizes, especially while rotating on
+    // Android. Use a stroked arc instead so the busy state remains a clear,
+    // platform-neutral spinner.
+    Shape {
+        id: loadingShape
+        width: 1024
+        height: 1024
+        anchors.centerIn: parent
+        visible: root.name === "loading"
+        scale: root.size / root.viewBoxSize
+        transformOrigin: Item.Center
+        preferredRendererType: Shape.CurveRenderer
+        antialiasing: true
+
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: root.color
+            strokeWidth: 88
+            capStyle: ShapePath.RoundCap
+
+            PathAngleArc {
+                centerX: 512
+                centerY: 512
+                radiusX: 360
+                radiusY: 360
+                startAngle: -90
+                sweepAngle: 285
+            }
+        }
+    }
+
     RotationAnimator {
-        target: iconShape
+        target: loadingShape
         from: 0
         to: 360
         duration: 900

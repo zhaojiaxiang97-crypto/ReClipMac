@@ -13,12 +13,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+#ifndef RECLIP_HAS_YTDLP_SDK
     inspector.setYtDlpPath({});
     inspector.inspect(QStringLiteral("https://example.com/media"));
     if (inspector.state() != QStringLiteral("error")
         || inspector.errorCode() != QStringLiteral("tool-missing")) {
         return 2;
     }
+#endif
 
     return 0;
 }

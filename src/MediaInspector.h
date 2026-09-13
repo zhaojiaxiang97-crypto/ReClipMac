@@ -1,7 +1,7 @@
 #pragma once
 
 #ifndef Q_OS_IOS
-#include <QProcess>
+#include "ytdlp/YtDlpService.h"
 #endif
 #include <QUrl>
 #include <QVariantList>
@@ -73,13 +73,10 @@ private:
         double bitrate = 0.0;
     };
 
-#ifndef Q_OS_IOS
-    void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void handleProcessError(QProcess::ProcessError error);
-#endif
     void handleAndroidInspectionFinished(const QString &requestId,
                                          bool success,
                                          const QByteArray &payload,
+                                         const QString &errorCode,
                                          const QString &errorMessage);
 #ifdef Q_OS_IOS
     void inspectIosDirectMedia(const QUrl &url);
@@ -92,7 +89,8 @@ private:
     static QString formatDuration(double seconds);
 
 #ifndef Q_OS_IOS
-    QProcess m_process;
+    ReClip::YtDlp::YtDlpService m_resolver;
+    QString m_resolveRequestId;
 #endif
     AndroidDownloadEngine m_androidEngine;
 #ifdef Q_OS_IOS

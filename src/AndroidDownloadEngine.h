@@ -26,6 +26,7 @@ signals:
     void inspectionFinished(const QString &requestId,
                              bool success,
                              const QByteArray &payload,
+                             const QString &errorCode,
                              const QString &errorMessage);
     void downloadProgress(const QString &requestId,
                           double progress,
@@ -34,7 +35,8 @@ signals:
                           const QString &line);
     void downloadFinished(const QString &requestId,
                           bool success,
-                          const QString &outputPath,
+                          const QByteArray &payload,
+                          const QString &errorCode,
                           const QString &errorMessage);
 
 private:

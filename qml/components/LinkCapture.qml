@@ -28,32 +28,37 @@ Item {
         border.width: 1
         border.color: dropArea.containsDrag ? Theme.accent : Theme.border
 
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: 1
-            height: 3
-            radius: 2
-            color: Theme.violet
-            visible: root.busy
-            opacity: 0.9
-        }
     }
 
     ColumnLayout {
         id: captureColumn
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: root.compact ? 16 : 20
+        spacing: root.compact ? 12 : 10
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
 
             Rectangle {
-                Layout.preferredWidth: 36
-                Layout.preferredHeight: 36
+                visible: root.compact
+                Layout.preferredWidth: visible ? 32 : 0
+                Layout.preferredHeight: visible ? 32 : 0
+                radius: width / 2
+                color: Theme.violetSurface
+
+                IconGlyph {
+                    anchors.centerIn: parent
+                    name: "link"
+                    color: Theme.accent
+                    size: 18
+                }
+            }
+
+            Rectangle {
+                visible: !root.compact
+                Layout.preferredWidth: visible ? 36 : 0
+                Layout.preferredHeight: visible ? 36 : 0
                 radius: Theme.radiusSmall
                 color: Theme.violetSurface
 
@@ -72,15 +77,15 @@ Item {
                 spacing: 2
 
                 Label {
-                    text: "添加媒体链接"
+                    text: root.compact ? "粘贴媒体链接" : "添加媒体链接"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 15
+                    font.pixelSize: root.compact ? 15 : 16
                     font.weight: Font.DemiBold
                 }
 
                 Label {
-                    text: root.compact ? "粘贴链接，确认后开始下载" : "支持多个公开链接，也可以直接拖入这里"
+                    text: root.compact ? "解析并下载视频或音频" : "支持公开链接，也可以直接拖入这里"
                     color: Theme.muted
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
@@ -88,7 +93,7 @@ Item {
             }
 
             Label {
-                visible: !root.compact
+                visible: false
                 text: "Ctrl / ⌘ + Enter"
                 color: Theme.subtle
                 font.family: Theme.monoFamily
@@ -99,8 +104,8 @@ Item {
         TextArea {
             id: urlField
             Layout.fillWidth: true
-            Layout.preferredHeight: root.compact ? 92 : 96
-            placeholderText: "https://…"
+            Layout.preferredHeight: root.compact ? 92 : 64
+            placeholderText: root.compact ? "请粘贴视频或音频链接…" : "粘贴链接，确认后开始下载"
             placeholderTextColor: Theme.subtle
             selectByMouse: true
             wrapMode: TextEdit.WrapAnywhere
@@ -116,7 +121,7 @@ Item {
 
             background: Rectangle {
                 radius: Theme.radiusControl
-                color: Theme.surfaceAlt
+                color: root.compact ? Theme.surfaceAlt : Theme.surface
                 border.width: urlField.activeFocus ? 2 : 1
                 border.color: urlField.activeFocus ? Theme.accent : Theme.border
             }
@@ -139,7 +144,7 @@ Item {
             }
 
             AppButton {
-                visible: !root.compact
+                visible: false
                 text: "清空"
                 iconName: "clear"
                 variant: "ghost"
@@ -152,17 +157,17 @@ Item {
             }
 
             AppButton {
-                Layout.fillWidth: root.compact
-                text: "从剪贴板粘贴"
+                Layout.fillWidth: false
+                text: root.compact ? "粘贴" : "从剪贴板粘贴"
                 iconName: "clipboard"
                 variant: "secondary"
-                compact: false
+                compact: root.compact
                 enabled: !root.busy
                 onClicked: root.pasteRequested()
             }
 
             AppButton {
-                Layout.fillWidth: root.compact
+                Layout.fillWidth: true
                 text: root.busy ? "正在解析" : "解析媒体"
                 iconName: root.busy ? "loading" : "scan"
                 variant: "primary"

@@ -95,12 +95,22 @@ QString readableErrorForState(const QString &state)
 DownloadQueue::DownloadQueue(QObject *parent)
     : QObject(parent)
     , m_androidEngine(this)
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    , m_sdkManager(this)
+#endif
 #ifdef Q_OS_IOS
     , m_iosNetwork(this)
 #endif
 {
     m_downloadDirectory = PlatformPaths::defaultDownloadDirectory();
     loadPersistedTasks();
+
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    connect(&m_sdkManager, &DownloadManager::stateChanged,
+            this, &DownloadQueue::handleSdkManagerStateChanged);
+    connect(&m_sdkManager, &DownloadManager::progressChanged,
+            this, &DownloadQueue::handleSdkManagerProgressChanged);
+#endif
 
 #ifndef Q_OS_IOS
     connect(&m_process, &QProcess::readyReadStandardOutput, this, [this] {
@@ -151,7 +161,8 @@ QVariantList DownloadQueue::tasks() const
                     || task.state == QStringLiteral("interrupted"));
         value.insert(QStringLiteral("canCancel"), task.state == QStringLiteral("queued")
                     || task.state == QStringLiteral("waiting")
-                    || task.state == QStringLiteral("downloading"));
+                    || task.state == QStringLiteral("downloading")
+                    || task.state == QStringLiteral("processing"));
         result.append(value);
     }
     return result;
@@ -179,6 +190,9 @@ void DownloadQueue::setDownloadDirectory(const QString &path)
         return;
     }
     m_downloadDirectory = QDir::cleanPath(cleaned);
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setDownloadDirectory(m_downloadDirectory);
+#endif
     emit downloadDirectoryChanged();
 }
 
@@ -194,6 +208,9 @@ void DownloadQueue::setExportDirectoryUri(const QString &uri)
         return;
     }
     m_exportDirectoryUri = cleaned;
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setExportDirectoryUri(m_exportDirectoryUri);
+#endif
     emit exportDirectoryChanged();
 }
 
@@ -211,6 +228,9 @@ void DownloadQueue::setPlatformStorage(PlatformStorage *storage)
         disconnect(m_platformStorage, nullptr, this, nullptr);
     }
     m_platformStorage = storage;
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setPlatformStorage(m_platformStorage);
+#endif
     if (m_platformStorage) {
         connect(m_platformStorage, &PlatformStorage::exportFinished,
                 this, &DownloadQueue::handleExportFinished);
@@ -229,6 +249,9 @@ void DownloadQueue::setYtDlpPath(const QString &path)
         return;
     }
     m_ytDlpPath = path;
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setYtDlpPath(m_ytDlpPath);
+#endif
     emit toolPathChanged();
 }
 
@@ -243,6 +266,9 @@ void DownloadQueue::setFfmpegPath(const QString &path)
         return;
     }
     m_ffmpegPath = path;
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setFfmpegPath(m_ffmpegPath);
+#endif
     emit toolPathChanged();
 }
 
@@ -256,21 +282,41 @@ void DownloadQueue::addUrls(const QString &rawInput, const QString &format)
 
 void DownloadQueue::addTask(const QString &sourceUrl, const QString &formatId, const QString &format)
 {
+    addTaskWithTitle(sourceUrl, formatId, format, {});
+}
+
+void DownloadQueue::addTaskWithTitle(const QString &sourceUrl,
+                                     const QString &formatId,
+                                     const QString &format,
+                                     const QString &title)
+{
     const QUrl url(sourceUrl.trimmed());
     if (!isHttpUrl(url)) {
         return;
     }
     const QString normalizedUrl = url.toString();
-    if (std::any_of(m_tasks.cbegin(), m_tasks.cend(), [&](const Task &task) {
-            return task.sourceUrl == normalizedUrl;
-        })) {
+    const QString fallbackTitle = url.host() + url.path();
+    const QString normalizedTitle = title.trimmed();
+    const auto existing = std::find_if(m_tasks.begin(), m_tasks.end(), [&](const Task &task) {
+        return task.sourceUrl == normalizedUrl;
+    });
+    if (existing != m_tasks.end()) {
+        // A task can be created from a pasted URL before metadata finishes.
+        // Allow the later inspection result to replace only that URL-shaped
+        // placeholder, while keeping an explicit user-visible title stable.
+        if (!normalizedTitle.isEmpty()
+            && (existing->title.isEmpty() || existing->title == fallbackTitle
+                || existing->title == normalizedUrl)) {
+            existing->title = normalizedTitle;
+            notifyQueueChanged();
+        }
         return;
     }
 
     Task task;
     task.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     task.sourceUrl = normalizedUrl;
-    task.title = url.host() + url.path();
+    task.title = normalizedTitle.isEmpty() ? fallbackTitle : normalizedTitle;
     task.formatId = formatId.trimmed();
     task.format = normalizeFormat(format);
     m_tasks.append(task);
@@ -433,6 +479,10 @@ void DownloadQueue::cancelActiveTask()
 #ifndef Q_OS_IOS
     if (!m_androidRequestId.isEmpty()) {
         m_androidEngine.cancel(m_androidRequestId);
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID)
+    } else if (m_sdkManager.busy()) {
+        m_sdkManager.cancel();
+#endif
     } else {
         m_process.terminate();
     }
@@ -469,6 +519,14 @@ void DownloadQueue::startTask(int index)
     const bool androidEngineAvailable = false;
 #endif
 #if defined(Q_OS_IOS)
+#elif defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID)
+    if (m_ytDlpPath.trimmed().isEmpty() && !ReClip::YtDlp::YtDlpService::embeddedEnabled()) {
+        task.state = QStringLiteral("failed");
+        task.statusText = QStringLiteral("工具不可用");
+        task.errorMessage = QStringLiteral("yt-dlp 不可用，请先完成工具诊断");
+        notifyQueueChanged();
+        return;
+    }
 #elif !defined(Q_OS_ANDROID)
     if (m_ytDlpPath.trimmed().isEmpty() || m_ffmpegPath.trimmed().isEmpty()) {
         task.state = QStringLiteral("failed");
@@ -536,6 +594,17 @@ void DownloadQueue::startTask(int index)
     }
 #endif
 
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+    m_sdkManager.setDownloadDirectory(m_downloadDirectory);
+    m_sdkManager.setExportDirectoryUri(m_exportDirectoryUri);
+    m_sdkManager.setYtDlpPath(m_ytDlpPath);
+    m_sdkManager.setFfmpegPath(m_ffmpegPath);
+    m_sdkManager.setOutputFormat(task.format);
+    m_sdkManager.startDownload(task.sourceUrl, task.formatId, task.format);
+    notifyQueueChanged();
+    return;
+#endif
+
 #ifndef Q_OS_IOS
     const QString outputTemplate = directory.filePath(QStringLiteral("%(title).200B [%(id)s].%(ext)s"));
     QStringList arguments {
@@ -570,6 +639,51 @@ void DownloadQueue::startTask(int index)
     notifyQueueChanged();
 #endif
 }
+
+#if defined(RECLIP_HAS_FFMPEG_SDK) && !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
+void DownloadQueue::handleSdkManagerStateChanged()
+{
+    if (m_activeIndex < 0 || m_activeIndex >= m_tasks.size()) {
+        return;
+    }
+
+    const QString state = m_sdkManager.state();
+    Task &task = m_tasks[m_activeIndex];
+    task.state = state;
+    task.statusText = m_sdkManager.statusText();
+    task.progress = m_sdkManager.progress();
+    task.speed = m_sdkManager.speed();
+    task.eta = m_sdkManager.eta();
+    task.outputPath = m_sdkManager.outputPath();
+    task.exportedUri = m_sdkManager.exportedUri();
+    task.errorMessage = m_sdkManager.errorMessage();
+
+    if (state == QStringLiteral("completed")
+        || state == QStringLiteral("failed")
+        || state == QStringLiteral("cancelled")) {
+        const QString status = task.statusText;
+        const QString error = task.errorMessage;
+        finishActive(state, status, error);
+        return;
+    }
+
+    notifyQueueChanged();
+}
+
+void DownloadQueue::handleSdkManagerProgressChanged()
+{
+    if (m_activeIndex < 0 || m_activeIndex >= m_tasks.size()) {
+        return;
+    }
+
+    Task &task = m_tasks[m_activeIndex];
+    task.progress = m_sdkManager.progress();
+    task.speed = m_sdkManager.speed();
+    task.eta = m_sdkManager.eta();
+    task.outputPath = m_sdkManager.outputPath();
+    notifyQueueChanged();
+}
+#endif
 
 #ifdef Q_OS_IOS
 void DownloadQueue::startIosDownload(Task &task)
@@ -757,7 +871,8 @@ void DownloadQueue::handleAndroidDownloadProgress(const QString &requestId,
 
 void DownloadQueue::handleAndroidDownloadFinished(const QString &requestId,
                                                    bool success,
-                                                   const QString &outputPath,
+                                                   const QByteArray &payload,
+                                                   const QString &errorCode,
                                                    const QString &errorMessage)
 {
     if (requestId != m_androidRequestId
@@ -767,8 +882,9 @@ void DownloadQueue::handleAndroidDownloadFinished(const QString &requestId,
 
     m_androidRequestId.clear();
     Task &task = m_tasks[m_activeIndex];
-    if (task.cancelRequested || !success) {
-        if (task.cancelRequested || errorMessage == QStringLiteral("已取消")) {
+    if (task.cancelRequested || errorCode == QStringLiteral("cancelled") || !success) {
+        if (task.cancelRequested || errorCode == QStringLiteral("cancelled")
+            || errorMessage == QStringLiteral("已取消")) {
             finishActive(QStringLiteral("cancelled"), QStringLiteral("已取消"));
         } else {
             finishActive(QStringLiteral("failed"),
@@ -778,8 +894,11 @@ void DownloadQueue::handleAndroidDownloadFinished(const QString &requestId,
         return;
     }
 
-    task.outputPath = outputPath.trimmed();
-    if (task.outputPath.isEmpty()) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload);
+    if (document.isObject()) {
+        task.outputPath = document.object().value(QStringLiteral("path")).toString().trimmed();
+    }
+    if (task.outputPath.isEmpty() || !QFileInfo(task.outputPath).isFile()) {
         finishActive(QStringLiteral("failed"),
                      QStringLiteral("下载失败"),
                      QStringLiteral("Android 运行时未返回输出文件"));
@@ -920,6 +1039,11 @@ void DownloadQueue::handleExportFinished(const QString &requestId,
 
 void DownloadQueue::cleanupTemporaryFiles(const Task &task)
 {
+#ifdef RECLIP_HAS_YTDLP_SDK
+    // Embedded DownloadManager owns uniquely named temporary inputs; do not
+    // infer ownership of neighbouring files from the final output name.
+    if (m_ytDlpPath.trimmed().isEmpty()) { return; }
+#endif
     if (task.outputPath.isEmpty()) {
         return;
     }

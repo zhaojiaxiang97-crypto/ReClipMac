@@ -25,58 +25,28 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 8
+        anchors.margins: 20
+        spacing: 10
 
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.bottomMargin: 18
-            spacing: 10
+            Layout.bottomMargin: 28
+            spacing: 0
 
-            Rectangle {
-                Layout.preferredWidth: 38
-                Layout.preferredHeight: 38
-                radius: Theme.radiusControl
-                color: Theme.accent
-
-                IconGlyph {
-                    anchors.centerIn: parent
-                    name: "download"
-                    color: Theme.accentText
-                    size: 22
-                }
+            Label {
+                text: root.productName
+                color: Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
             }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-
-                Label {
-                    text: root.productName
-                    color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 16
-                    font.weight: Font.DemiBold
-                }
-
-                Label {
-                    text: "本地媒体工作台"
-                    color: Theme.subtle
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 11
-                }
+            Label {
+                text: "本地媒体工作台"
+                color: Theme.subtle
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
             }
-        }
-
-        Label {
-            text: "工作区"
-            color: Theme.subtle
-            font.family: Theme.fontFamily
-            font.pixelSize: 10
-            font.weight: Font.DemiBold
-            font.letterSpacing: 1.1
-            Layout.topMargin: 2
-            Layout.bottomMargin: 2
         }
 
         NavigationItem {
@@ -87,66 +57,38 @@ Rectangle {
             onClicked: root.navigate("new")
         }
 
-        NavigationItem {
-            Layout.fillWidth: true
-            text: "设置"
-            iconName: "settings"
-            selected: root.currentPage === "settings"
-            onClicked: root.navigate("settings")
-        }
-
         Item { Layout.fillHeight: true }
 
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: 1
-            color: Theme.border
-        }
+            implicitHeight: 44
+            color: "transparent"
+            border.width: 0
 
-        Button {
-            Layout.fillWidth: true
-            implicitHeight: 58
-            leftPadding: 12
-            rightPadding: 12
-            onClicked: root.navigate("settings")
-
-            contentItem: RowLayout {
-                spacing: 10
+            RowLayout {
+                anchors.fill: parent
+                spacing: 9
 
                 Rectangle {
-                    Layout.preferredWidth: 8
-                    Layout.preferredHeight: 8
-                    radius: 4
+                    Layout.preferredWidth: 7
+                    Layout.preferredHeight: 7
+                    radius: 3.5
                     color: root.toolsReady ? Theme.signal : Theme.danger
                 }
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 1
-
+                    spacing: 0
                     Label {
-                        text: "下载引擎"
-                        color: Theme.muted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 11
-                    }
-
-                    Label {
-                        text: root.toolsReady ? "工具已就绪" : "需要检查工具"
+                        text: root.toolsReady ? "引擎状态：已就绪" : "引擎状态：未就绪"
                         color: root.toolsReady ? Theme.signal : Theme.warningText
                         font.family: Theme.fontFamily
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         elide: Text.ElideRight
                     }
                 }
             }
 
-            background: Rectangle {
-                color: parent.hovered ? Theme.selectionSurface : Theme.surfaceAlt
-                radius: Theme.radiusControl
-                border.width: 1
-                border.color: Theme.border
-            }
         }
 
     }
