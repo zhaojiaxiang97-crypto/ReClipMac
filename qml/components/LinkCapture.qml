@@ -163,7 +163,11 @@ Item {
                 variant: "secondary"
                 compact: root.compact
                 enabled: !root.busy
-                onClicked: root.pasteRequested()
+                onClicked: {
+                    urlField.forceActiveFocus()
+                    urlField.paste()
+                    root.pasteRequested()
+                }
             }
 
             AppButton {

@@ -26,9 +26,19 @@ ApplicationWindow {
     visible: true
     title: controller.productName
     color: Theme.background
+    flags: Qt.platform.os === "ios"
+        ? Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint
+        : Qt.Window
+
+    background: Rectangle {
+        color: Theme.background
+    }
 
     function pageIndex() {
-        return currentPage === "queue" ? 1 : 0
+        if (currentPage === "settings") {
+            return 1
+        }
+        return 0
     }
 
     function mobilePageIndex() {
@@ -192,6 +202,7 @@ ApplicationWindow {
             }
 
             ColumnLayout {
+                id: desktopContent
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 0
@@ -211,21 +222,15 @@ ApplicationWindow {
                         downloads: window.downloadManager
                         queue: window.downloadQueue
                         initialUrl: window.pendingExternalUrl
-                        onOpenQueue: window.navigate("queue")
                     }
 
-                    QueuePage {
-                        queue: window.downloadQueue
+                    SettingsPage {
+                        settings: window.appSettings
+                        controller: window.appController
+                        platformStorage: window.platformStorage
                     }
                 }
-            }
-
-            ActivityPanel {
-                visible: window.wideWidth
-                Layout.preferredWidth: visible ? 300 : 0
-                queue: window.downloadQueue
-                onOpenQueue: window.navigate("queue")
-            }
+        }
         }
     }
 

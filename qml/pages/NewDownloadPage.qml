@@ -13,9 +13,10 @@ Item {
     property var downloads: null
     property var queue: null
     property var platformStorage: null
-    property bool compact: width < 700
+    property bool compact: root.mobilePlatform
     property string initialUrl: ""
     readonly property bool mobilePlatform: Qt.platform.os === "android" || Qt.platform.os === "ios"
+    implicitHeight: content.implicitHeight + content.y + (root.compact ? 12 : Theme.pageTop)
 
     signal openQueue()
 
@@ -125,7 +126,6 @@ Item {
 
                 onParseRequested: root.startInspection()
                 onPasteRequested: {
-                    capture.text = controller ? controller.clipboardText() : ""
                     if (capture.text.length > 0) {
                         root.startInspection()
                     }
@@ -216,6 +216,13 @@ Item {
                         }
                     }
                 }
+            }
+
+            ActivityPanel {
+                visible: !root.compact
+                Layout.fillWidth: true
+                queue: root.queue
+                compact: root.compact
             }
 
             InlineNotice {
@@ -735,6 +742,11 @@ Item {
                         onRemoveClicked: function (taskId) { queue.removeTask(taskId) }
                     }
                 }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: root.compact ? 16 : Theme.pageGutter
             }
 
         }

@@ -39,6 +39,24 @@ Item {
         }
         return value
     }
+    readonly property string taskDetails: {
+        var details = []
+        if (task.progress !== undefined && root.taskState === "downloading") {
+            details.push(Math.round(task.progress * 100) + "%")
+        }
+        if (root.taskState === "downloading" && task.speed) {
+            details.push(task.speed)
+        }
+        var eta = (task.eta || "").trim()
+        if (root.taskState === "downloading" && eta) {
+            var unknownEta = eta.toUpperCase() === "NA" || eta.toUpperCase() === "N/A"
+            details.push(unknownEta ? "预计时间计算中" : "剩余 " + eta)
+        }
+        if (root.taskState === "completed" && task.outputPath) {
+            details.push("已保存")
+        }
+        return details.join("  ·  ")
+    }
     readonly property string taskIconName: {
         if (root.taskState === "completed") return "check"
         if (root.taskState === "failed") return "error"
@@ -50,7 +68,8 @@ Item {
     }
     readonly property color taskColor: Theme.stateColor(taskState)
 
-    implicitHeight: rowColumn.implicitHeight + (compact ? 20 : 28)
+    implicitHeight: Math.max(compact ? 78 : 92,
+                             rowColumn.implicitHeight + (compact ? 24 : 32))
 
     AppDialog {
         id: removeDialog
@@ -67,7 +86,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Theme.radiusPanel
-        color: root.taskState === "downloading" ? Theme.surface : Theme.background
+        color: root.taskState === "downloading" ? Theme.surface : Theme.surfaceAlt
         border.width: 1
         border.color: root.taskState === "downloading"
                       ? Qt.rgba(root.taskColor.r, root.taskColor.g, root.taskColor.b, 0.52)
@@ -77,16 +96,16 @@ Item {
     ColumnLayout {
         id: rowColumn
         anchors.fill: parent
-        anchors.margins: compact ? 10 : 14
-        spacing: compact ? 8 : 10
+        anchors.margins: compact ? 12 : 16
+        spacing: compact ? 6 : 10
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: compact ? 10 : 12
 
             Rectangle {
-                Layout.preferredWidth: compact ? 24 : 30
-                Layout.preferredHeight: compact ? 24 : 30
+                Layout.preferredWidth: compact ? 32 : 36
+                Layout.preferredHeight: compact ? 32 : 36
                 radius: width / 2
                 color: Theme.stateSurface(root.taskState)
 
@@ -94,12 +113,13 @@ Item {
                     anchors.centerIn: parent
                     name: root.taskIconName
                     color: root.taskColor
-                    size: compact ? 16 : 18
+                    size: compact ? 18 : 20
                 }
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignTop
                 spacing: 3
 
                 Label {
@@ -107,7 +127,7 @@ Item {
                     text: root.taskTitle
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: compact ? 13 : 14
+                    font.pixelSize: compact ? 14 : 15
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -120,6 +140,37 @@ Item {
                     font.pixelSize: compact ? 11 : 12
                     elide: Text.ElideRight
                 }
+                SignalTrace {
+                    visible: root.taskState === "downloading"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: compact ? 5 : 6
+                    progress: task.progress || 0
+                    state: root.taskState
+                    indeterminate: false
+                    showMarker: false
+                }
+
+                Label {
+                    visible: root.taskDetails.length > 0
+                    Layout.fillWidth: true
+                    text: root.taskDetails
+                    color: root.taskState === "failed" || root.taskState === "interrupted"
+                           ? Theme.danger : Theme.muted
+                    font.family: Theme.monoFamily
+                    font.pixelSize: compact ? 11 : 12
+                    elide: Text.ElideMiddle
+                }
+
+                Label {
+                    visible: (root.taskState === "failed" || root.taskState === "interrupted")
+                             && root.taskError.length > 0
+                    Layout.fillWidth: true
+                    text: root.taskError
+                    color: Theme.danger
+                    font.family: Theme.fontFamily
+                    font.pixelSize: compact ? 11 : 12
+                    elide: Text.ElideRight
+                }
             }
 
             StatusPill {
@@ -128,100 +179,62 @@ Item {
                 label: root.taskStatus
                 compact: true
             }
-        }
 
-        SignalTrace {
-            visible: root.taskState === "downloading"
-            Layout.fillWidth: true
-            progress: task.progress || 0
-            state: root.taskState
-            indeterminate: root.taskState === "queued" || root.taskState === "waiting"
-            showMarker: root.taskState !== "queued" && root.taskState !== "waiting"
-        }
+            RowLayout {
+                Layout.alignment: Qt.AlignTop
+                spacing: 6
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            Label {
-                Layout.fillWidth: true
-                text: {
-                    var details = []
-                    if (task.progress !== undefined && root.taskState === "downloading") {
-                        details.push(Math.round(task.progress * 100) + "%")
-                    }
-                    if (root.taskState === "downloading" && task.speed) {
-                        details.push(task.speed)
-                    }
-                    var eta = (task.eta || "").trim()
-                    if (root.taskState === "downloading" && eta) {
-                        var unknownEta = eta.toUpperCase() === "NA" || eta.toUpperCase() === "N/A"
-                        details.push(unknownEta ? "预计时间计算中" : "剩余 " + eta)
-                    }
-                    if (root.taskState === "completed" && task.outputPath) {
-                        details.push("已保存")
-                    }
-                    return details.join("  ·  ")
+                AppButton {
+                    visible: task.canCancel === true
+                    text: root.compact ? "" : (root.taskState === "downloading" ? "取消" : "取消等待")
+                    iconName: "clear"
+                    iconOnly: root.compact
+                    variant: "ghost"
+                    compact: true
+                    Accessible.name: "取消下载"
+                    onClicked: root.cancelClicked(root.taskId)
                 }
-                    color: root.taskState === "failed" || root.taskState === "interrupted" ? Theme.danger : Theme.muted
-                font.family: Theme.monoFamily
-                font.pixelSize: compact ? 11 : 12
-                elide: Text.ElideMiddle
-            }
 
-            AppButton {
-                visible: task.canCancel === true
-                text: root.taskState === "downloading" ? "取消" : "取消等待"
-                variant: "ghost"
-                compact: true
-                onClicked: root.cancelClicked(root.taskId)
-            }
+                AppButton {
+                    visible: task.canRetry === true
+                    text: root.compact ? "" : "重试"
+                    iconName: "refresh"
+                    iconOnly: root.compact
+                    variant: "secondary"
+                    compact: true
+                    Accessible.name: "重试下载"
+                    onClicked: root.retryClicked(root.taskId)
+                }
 
-            AppButton {
-                visible: task.canRetry === true
-                text: "重试"
-                variant: "secondary"
-                compact: true
-                onClicked: root.retryClicked(root.taskId)
-            }
+                AppButton {
+                    visible: root.taskState === "completed"
+                    text: "打开"
+                    iconName: "open"
+                    variant: "secondary"
+                    compact: true
+                    onClicked: root.openClicked(root.taskId)
+                }
 
-            AppButton {
-                visible: root.taskState === "completed"
-                text: compact ? "打开" : "打开文件"
-                iconName: "open"
-                variant: "secondary"
-                compact: true
-                onClicked: root.openClicked(root.taskId)
-            }
+                AppButton {
+                    visible: root.taskState === "completed" && Qt.platform.os === "android"
+                    text: "分享"
+                    iconName: "share"
+                    variant: "secondary"
+                    compact: true
+                    onClicked: root.shareClicked(root.taskId)
+                }
 
-            AppButton {
-                visible: root.taskState === "completed" && Qt.platform.os === "android"
-                text: "分享"
-                iconName: "share"
-                variant: "secondary"
-                compact: true
-                onClicked: root.shareClicked(root.taskId)
+                AppButton {
+                    enabled: root.taskId.length > 0
+                    text: root.compact ? "" : "删除"
+                    iconName: "trash"
+                    iconOnly: root.compact
+                    variant: "ghost"
+                    compact: true
+                    Accessible.name: "删除下载任务"
+                    onClicked: removeDialog.open()
+                }
             }
-
-            AppButton {
-                enabled: root.taskId.length > 0
-                text: "删除"
-                iconName: "trash"
-                iconOnly: root.compact
-                variant: "ghost"
-                compact: true
-                onClicked: removeDialog.open()
-            }
-        }
-
-        Label {
-            visible: (root.taskState === "failed" || root.taskState === "interrupted") && root.taskError
-            Layout.fillWidth: true
-            text: root.taskError || "下载未完成"
-            color: Theme.danger
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            wrapMode: Text.Wrap
         }
     }
 }

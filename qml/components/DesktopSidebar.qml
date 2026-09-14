@@ -25,19 +25,19 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 10
+        anchors.margins: 24
+        spacing: 12
 
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.bottomMargin: 28
+            Layout.bottomMargin: 34
             spacing: 0
 
             Label {
                 text: root.productName
                 color: Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: 18
+                font.pixelSize: 20
                 font.weight: Font.DemiBold
             }
 
@@ -57,16 +57,28 @@ Rectangle {
             onClicked: root.navigate("new")
         }
 
+        NavigationItem {
+            Layout.fillWidth: true
+            text: "设置"
+            iconName: "settings"
+            selected: root.currentPage === "settings"
+            onClicked: root.navigate("settings")
+        }
+
         Item { Layout.fillHeight: true }
 
         Rectangle {
             Layout.fillWidth: true
-            implicitHeight: 44
-            color: "transparent"
-            border.width: 0
+            implicitHeight: 58
+            radius: Theme.radiusControl
+            color: Theme.surfaceAlt
+            border.width: 1
+            border.color: Theme.border
 
             RowLayout {
                 anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
                 spacing: 9
 
                 Rectangle {

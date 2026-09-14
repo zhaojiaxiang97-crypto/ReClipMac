@@ -32,37 +32,53 @@ Rectangle {
         }
         return false
     }
+    readonly property string summaryText: {
+        if (!root.hasTasks) {
+            return "队列为空"
+        }
+        var active = 0
+        var waiting = 0
+        var completed = 0
+        var failed = 0
+        for (var index = 0; index < root.queue.tasks.length; ++index) {
+            var state = root.queue.tasks[index].state
+            if (state === "downloading") {
+                active += 1
+            } else if (state === "queued" || state === "waiting" || state === "interrupted") {
+                waiting += 1
+            } else if (state === "completed") {
+                completed += 1
+            } else {
+                failed += 1
+            }
+        }
+        var parts = []
+        if (active > 0) parts.push(active + " 个进行中")
+        if (waiting > 0) parts.push(waiting + " 个等待中")
+        if (completed > 0) parts.push(completed + " 个已完成")
+        if (failed > 0) parts.push(failed + " 个未完成")
+        return parts.join("  ·  ")
+    }
     signal openQueue()
 
     Layout.preferredWidth: 312
     Layout.preferredHeight: implicitHeight
-    Layout.maximumHeight: root.queue && root.queue.running ? 16777215 : implicitHeight
-    Layout.fillHeight: root.queue && root.queue.running
+    Layout.maximumHeight: 16777215
+    Layout.fillHeight: false
     Layout.alignment: Qt.AlignTop
     implicitHeight: root.hasTasks
-                    ? Math.min(480, 104 + root.taskCount * 132 + (root.hasStartableTasks ? 48 : 0))
-                    : 174
-    color: root.compact ? Theme.surface : "transparent"
-    radius: root.compact ? Theme.radiusPanel : 0
-    border.width: root.compact ? 1 : 0
+                    ? Math.min(620, 104 + Math.min(root.taskCount, 4) * 96
+                               + (root.hasStartableTasks ? 52 : 0))
+                    : 176
+    color: Theme.surface
+    radius: Theme.radiusPanel
+    border.width: 1
     border.color: Theme.border
-
-    Rectangle {
-        visible: !root.compact
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        width: 1
-        color: Theme.border
-    }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: root.compact ? 16 : 24
-        anchors.rightMargin: root.compact ? 16 : 18
-        anchors.bottomMargin: root.compact ? 16 : 18
-        anchors.leftMargin: root.compact ? 16 : 24
-        spacing: 12
+        anchors.margins: root.compact ? 16 : 20
+        spacing: 14
 
         RowLayout {
             Layout.fillWidth: true
@@ -72,18 +88,19 @@ Rectangle {
                 spacing: 2
 
                 Label {
-                    text: "活动"
+                    text: "下载队列"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.compact ? 16 : 20
+                    font.pixelSize: root.compact ? 17 : 22
                     font.weight: Font.DemiBold
                 }
 
                 Label {
-                    text: root.hasTasks ? "%1 个任务".arg(root.taskCount) : "暂无任务"
+                    text: root.summaryText
                     color: Theme.muted
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.compact ? 11 : 12
+                    font.pixelSize: root.compact ? 11 : 13
+                    elide: Text.ElideRight
                 }
             }
 
@@ -96,59 +113,13 @@ Rectangle {
             }
         }
 
-        SignalTrace {
-            visible: root.hasTasks && activeState() === "downloading"
-            Layout.fillWidth: true
-            progress: activeProgress()
-            state: activeState()
-            indeterminate: activeState() === "waiting" || activeState() === "queued"
-                           || activeState() === "interrupted"
-            showMarker: false
-
-            function activeProgress() {
-                if (!root.queue) {
-                    return 0
-                }
-                for (var index = 0; index < root.queue.tasks.length; ++index) {
-                    var task = root.queue.tasks[index]
-                    if (task.state === "downloading") {
-                        return task.progress || 0
-                    }
-                }
-                return 0
-            }
-
-            function activeState() {
-                if (!root.queue) {
-                    return "idle"
-                }
-                for (var index = 0; index < root.queue.tasks.length; ++index) {
-                    var task = root.queue.tasks[index]
-                    if (task.state === "downloading" || task.state === "waiting"
-                            || task.state === "queued" || task.state === "interrupted") {
-                        return task.state
-                    }
-                }
-                return "completed"
-            }
-        }
-
-        Label {
-            visible: root.hasTasks
-            text: "下载任务"
-            color: Theme.muted
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-        }
-
         ListView {
             id: taskList
             visible: root.hasTasks
             Layout.fillWidth: true
             Layout.fillHeight: root.hasTasks
             clip: true
-            spacing: 12
+            spacing: 10
             model: root.queue ? root.queue.tasks : []
 
             delegate: DownloadRow {
@@ -166,7 +137,7 @@ Rectangle {
         Item {
             visible: !root.hasTasks
             Layout.fillWidth: true
-            Layout.preferredHeight: 64
+            Layout.preferredHeight: 92
 
             Column {
                 anchors.centerIn: parent
